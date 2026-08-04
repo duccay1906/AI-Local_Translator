@@ -165,7 +165,9 @@ function createPopupWindow() {
   }
 
   popupWindow.webContents.on('before-input-event', (event, input) => {
-    if (input.key === 'Escape') {
+    const key = (input.key || '').toLowerCase();
+    const code = (input.code || '').toLowerCase();
+    if (key === 'escape' || key === 'esc' || code === 'escape') {
       hidePopupWindow();
     }
   });

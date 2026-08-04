@@ -114,7 +114,7 @@ export const FloatingPopup: React.FC = () => {
   // Close popup when Esc key is pressed
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' || e.key === 'Esc' || e.code === 'Escape') {
         api.closePopup();
       }
     };
@@ -181,10 +181,10 @@ export const FloatingPopup: React.FC = () => {
         height: '100vh', 
         display: 'flex', 
         flexDirection: 'column',
-        backgroundColor: isSolid ? '#0f172a' : `rgba(15, 23, 42, ${popupOpacity})`,
+        backgroundColor: isSolid ? '#0b0f19' : `rgba(15, 23, 42, ${popupOpacity})`,
         backdropFilter: isSolid ? 'none' : `blur(${popupOpacity * 16}px)`,
         WebkitBackdropFilter: isSolid ? 'none' : `blur(${popupOpacity * 16}px)`,
-        border: '1px solid var(--glass-border)',
+        border: isSolid ? '1px solid #1e293b' : '1px solid var(--glass-border)',
         borderRadius: 'var(--radius-lg)',
         overflow: 'hidden',
         transition: 'background-color 0.15s ease, backdrop-filter 0.15s ease'
@@ -198,8 +198,8 @@ export const FloatingPopup: React.FC = () => {
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '8px 12px',
-          background: isSolid ? '#090d16' : 'rgba(11, 15, 25, 0.5)',
-          borderBottom: '1px solid var(--glass-border)',
+          background: isSolid ? '#05080f' : 'rgba(11, 15, 25, 0.5)',
+          borderBottom: isSolid ? '1px solid #1e293b' : '1px solid var(--glass-border)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -231,10 +231,10 @@ export const FloatingPopup: React.FC = () => {
                 display: 'flex', 
                 alignItems: 'center', 
                 gap: '6px', 
-                background: 'rgba(11, 15, 25, 0.9)', 
+                background: isSolid ? '#0f172a' : 'rgba(11, 15, 25, 0.9)', 
                 padding: '2px 8px', 
                 borderRadius: 'var(--radius-sm)', 
-                border: '1px solid var(--glass-border)' 
+                border: isSolid ? '1px solid #334155' : '1px solid var(--glass-border)' 
               }}
             >
               <Eye size={12} color="var(--text-muted)" />
@@ -306,10 +306,10 @@ export const FloatingPopup: React.FC = () => {
         {sourceText && (
           <div 
             style={{ 
-              background: 'rgba(255, 255, 255, 0.03)', 
+              background: isSolid ? '#0f172a' : 'rgba(255, 255, 255, 0.03)', 
               borderRadius: 'var(--radius-md)', 
               padding: '8px 10px',
-              border: '1px solid rgba(255, 255, 255, 0.05)',
+              border: isSolid ? '1px solid #1e293b' : '1px solid rgba(255, 255, 255, 0.05)',
               fontSize: '12px',
               color: 'var(--text-muted)'
             }}
@@ -384,10 +384,10 @@ export const FloatingPopup: React.FC = () => {
                 lineHeight: '1.55', 
                 color: 'var(--text-main)', 
                 whiteSpace: 'pre-wrap',
-                background: 'rgba(11, 15, 25, 0.5)',
+                background: isSolid ? '#0e1422' : 'rgba(11, 15, 25, 0.5)',
                 padding: '10px',
                 borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--glass-border)',
+                border: isSolid ? '1px solid #1e293b' : '1px solid var(--glass-border)',
                 userSelect: 'text',
                 WebkitUserSelect: 'text',
                 cursor: 'text'
