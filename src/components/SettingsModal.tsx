@@ -126,7 +126,7 @@ const HotkeyRecorder: React.FC<{ value: string; onChange: (shortcut: string) => 
               <span style={{ color: 'var(--text-dim)' }}>Click to record key</span>
             )}
           </div>
-          <span style={{ fontSize: '11px', color: 'var(--accent-primary)' }}>Press to record</span>
+          <span style={{ fontSize: '11px', color: 'var(--accent-primary)' }}>Press to change hotkey</span>
         </button>
       )}
     </div>
@@ -347,32 +347,30 @@ export const SettingsModal: React.FC = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <div>
                     <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
-                      Global Hotkey:
+                      Global Hotkey (Customizable):
                     </label>
-                    <div 
-                      className="form-input font-mono" 
-                      style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '8px', 
-                        background: 'rgba(11, 15, 25, 0.7)',
-                        padding: '8px 12px'
-                      }}
-                    >
-                      <kbd 
-                        style={{ 
-                          background: 'rgba(99, 102, 241, 0.25)', 
-                          border: '1px solid var(--accent-primary)', 
-                          color: '#fff', 
-                          padding: '3px 8px', 
-                          borderRadius: '4px',
-                          fontSize: '12px',
-                          fontWeight: 700
-                        }}
-                      >
-                        F8
-                      </kbd>
-                      <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>(Fixed Shortcut Key)</span>
+                    <HotkeyRecorder 
+                      value={settings.hotkey || 'F8'} 
+                      onChange={(newShortcut) => setSettings({ ...settings, hotkey: newShortcut })} 
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Click box to change hotkey</span>
+                      {(settings.hotkey && settings.hotkey !== 'F8') && (
+                        <button
+                          type="button"
+                          onClick={() => setSettings({ ...settings, hotkey: 'F8' })}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--accent-primary)',
+                            fontSize: '11px',
+                            cursor: 'pointer',
+                            textDecoration: 'underline',
+                          }}
+                        >
+                          Reset to F8
+                        </button>
+                      )}
                     </div>
                   </div>
 

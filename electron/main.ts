@@ -389,16 +389,18 @@ async function triggerTranslationFlow(overrideText?: string) {
 
 function registerHotkeys() {
   globalShortcut.unregisterAll();
-  activeSettings.hotkey = 'F8';
+  const targetHotkey = activeSettings.hotkey || 'F8';
   try {
-    const ok = globalShortcut.register('F8', () => {
+    const ok = globalShortcut.register(targetHotkey, () => {
       triggerTranslationFlow();
     });
     if (ok) {
-      console.log('Global hotkey F8 registered successfully.');
+      console.log(`Global hotkey ${targetHotkey} registered successfully.`);
     } else {
-      console.warn('F8 hotkey failed to register, trying F9...');
-      globalShortcut.register('F9', () => triggerTranslationFlow());
+      console.warn(`${targetHotkey} hotkey failed to register, falling back to F8...`);
+      if (targetHotkey !== 'F8') {
+        globalShortcut.register('F8', () => triggerTranslationFlow());
+      }
     }
   } catch (err) {
     console.error('Hotkey registration error:', err);
