@@ -1,0 +1,459 @@
+import React, { useState, useEffect } from 'react';
+import { api } from '../services/api';
+import { AppSettings } from '../types';
+import { 
+  Pin, 
+  X, 
+  Copy, 
+  Check, 
+  Volume2, 
+  RotateCw, 
+  Settings, 
+  Sparkles, 
+  ChevronDown, 
+  ChevronUp,
+  AlertTriangle,
+  Eye
+} from 'lucide-react';
+
+const SUPPORTED_LANGUAGES = [
+  'Vietnamese',
+  'English',
+  'Japanese',
+  'Korean',
+  'Chinese (Simplified)',
+  'French',
+  'German',
+  'Spanish',
+  'Russian',
+];
+
+export const FloatingPopup: React.FC = () => {
+  const [sourceText, setSourceText] = useState<string>('');
+  const [translatedText, setTranslatedText] = useState<string>('');
+  const [targetLang, setTargetLang] = useState<string>('Vietnamese');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isPinned, setIsPinned] = useState<boolean>(false);
+  const [copied, setCopied] = useState<boolean>(false);
+  const [showSource, setShowSource] = useState<boolean>(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
+
+  const [popupOpacity, setPopupOpacity] = useState<number>(0.92);
+  const [showOpacitySlider, setShowOpacitySlider] = useState<boolean>(false);
+
+  const targetLangRef = React.useRef<string>(targetLang);
+
+  // Keep targetLangRef in sync with targetLang state
+  useEffect(() => {
+    targetLangRef.current = targetLang;
+  }, [targetLang]);
+
+  useEffect(() => {
+    // Load current settings ONCE on mount
+    api.getSettings().then((res) => {
+      setSettings(res);
+      if (res.targetLanguage) {
+        setTargetLang(res.targetLanguage);
+        targetLangRef.current = res.targetLanguage;
+      }
+      if (res.opacity !== undefined) {
+        setPopupOpacity(res.opacity);
+      }
+    });
+
+    // Listen for translation trigger from main process (hotkey or selection)
+    const cleanupTrigger = api.onTriggerTranslate((data) => {
+      setSourceText(data.text);
+      setTranslatedText('');
+      setErrorMessage(null);
+      setIsLoading(true);
+      api.translateText(data.text, targetLangRef.current);
+    });
+
+    // Listen for stream chunks
+    const cleanupChunk = api.onTranslateChunk((chunk) => {
+      setIsLoading(false);
+      setTranslatedText((prev) => prev + chunk);
+    });
+
+    // Listen for completion
+    const cleanupComplete = api.onTranslateComplete((fullText) => {
+      setIsLoading(false);
+      setTranslatedText(fullText);
+    });
+
+    // Listen for errors
+    const cleanupError = api.onTranslateError((err) => {
+      setIsLoading(false);
+      setErrorMessage(err);
+    });
+
+    return () => {
+      cleanupTrigger();
+      cleanupChunk();
+      cleanupComplete();
+      cleanupError();
+    };
+  }, []);
+
+  // Listen for window focus loss (click outside popup) to automatically close unless pinned
+  useEffect(() => {
+    const handleBlur = () => {
+      if (!isPinned) {
+        api.closePopup();
+      }
+    };
+
+    window.addEventListener('blur', handleBlur);
+    return () => {
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, [isPinned]);
+
+  // Close popup when Esc key is pressed
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        api.closePopup();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
+  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newLang = e.target.value;
+    setTargetLang(newLang);
+    if (sourceText) {
+      setTranslatedText('');
+      setErrorMessage(null);
+      setIsLoading(true);
+      api.translateText(sourceText, newLang);
+    }
+  };
+
+  const handleRegenerate = () => {
+    if (sourceText) {
+      setTranslatedText('');
+      setErrorMessage(null);
+      setIsLoading(true);
+      api.translateText(sourceText, targetLang);
+    }
+  };
+
+  const handleCopy = () => {
+    if (translatedText) {
+      api.copyToClipboard(translatedText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleSpeak = () => {
+    if ('speechSynthesis' in window && translatedText) {
+      window.speechSynthesis.cancel(); // stop active utterance
+      const utterance = new SpeechSynthesisUtterance(translatedText);
+      utterance.rate = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  const togglePin = () => {
+    const nextPinState = !isPinned;
+    setIsPinned(nextPinState);
+    api.setPinned(nextPinState);
+  };
+
+  const handleClose = () => {
+    api.closePopup();
+  };
+
+  const isSolid = popupOpacity >= 0.99;
+
+  return (
+    <div 
+      style={{ 
+        width: '100%', 
+        height: '100vh', 
+        display: 'flex', 
+        flexDirection: 'column',
+        backgroundColor: isSolid ? '#0f172a' : `rgba(15, 23, 42, ${popupOpacity})`,
+        backdropFilter: isSolid ? 'none' : `blur(${popupOpacity * 16}px)`,
+        WebkitBackdropFilter: isSolid ? 'none' : `blur(${popupOpacity * 16}px)`,
+        border: '1px solid var(--glass-border)',
+        borderRadius: 'var(--radius-lg)',
+        overflow: 'hidden',
+        transition: 'background-color 0.15s ease, backdrop-filter 0.15s ease'
+      }}
+    >
+      {/* Header Bar */}
+      <div 
+        className="drag-region"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '8px 12px',
+          background: isSolid ? '#090d16' : 'rgba(11, 15, 25, 0.5)',
+          borderBottom: '1px solid var(--glass-border)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Sparkles size={16} color="var(--accent-primary)" />
+          <span style={{ fontSize: '13px', fontWeight: 700 }} className="gradient-text">
+            AI Translate
+          </span>
+          <span className="pulse-dot" title="LM Studio Status OK" />
+        </div>
+
+        {/* Controls */}
+        <div className="no-drag" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {/* Target Language Select */}
+          <select 
+            className="form-select" 
+            value={targetLang} 
+            onChange={handleLanguageChange}
+            style={{ width: 'auto', padding: '3px 8px', fontSize: '11px', height: '26px' }}
+          >
+            {SUPPORTED_LANGUAGES.map((lang) => (
+              <option key={lang} value={lang}>{lang}</option>
+            ))}
+          </select>
+
+          {/* Opacity Control Slider Popover */}
+          {showOpacitySlider && (
+            <div 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '6px', 
+                background: 'rgba(11, 15, 25, 0.9)', 
+                padding: '2px 8px', 
+                borderRadius: 'var(--radius-sm)', 
+                border: '1px solid var(--glass-border)' 
+              }}
+            >
+              <Eye size={12} color="var(--text-muted)" />
+              <input 
+                type="range" 
+                min="0.30" 
+                max="1.0" 
+                step="0.05" 
+                value={popupOpacity}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  setPopupOpacity(val);
+                  if (settings) {
+                    api.saveSettings({ ...settings, opacity: val });
+                  }
+                }}
+                style={{ width: '60px', height: '4px', cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', width: '26px' }}>
+                {Math.round(popupOpacity * 100)}%
+              </span>
+            </div>
+          )}
+
+          <button 
+            className={`btn-icon ${showOpacitySlider ? 'active' : ''}`}
+            onClick={() => setShowOpacitySlider(!showOpacitySlider)}
+            title="Adjust Window Opacity (Transparency)"
+            style={{ width: '26px', height: '26px' }}
+          >
+            <Eye size={13} />
+          </button>
+
+          {/* Pin Button */}
+          <button 
+            className={`btn-icon ${isPinned ? 'active' : ''}`}
+            onClick={togglePin}
+            title={isPinned ? 'Unpin Window' : 'Pin Always on Top'}
+            style={{ width: '26px', height: '26px' }}
+          >
+            <Pin size={13} />
+          </button>
+
+          {/* Settings Button */}
+          <button 
+            className="btn-icon"
+            onClick={() => api.openSettingsWindow()}
+            title="Open Settings"
+            style={{ width: '26px', height: '26px' }}
+          >
+            <Settings size={13} />
+          </button>
+
+          {/* Close Button */}
+          <button 
+            className="btn-icon"
+            onClick={handleClose}
+            title="Close"
+            style={{ width: '26px', height: '26px' }}
+          >
+            <X size={13} />
+          </button>
+        </div>
+      </div>
+
+      {/* Main Translation Content */}
+      <div style={{ flex: 1, padding: '12px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {/* Source Text Preview (Collapsible) */}
+        {sourceText && (
+          <div 
+            style={{ 
+              background: 'rgba(255, 255, 255, 0.03)', 
+              borderRadius: 'var(--radius-md)', 
+              padding: '8px 10px',
+              border: '1px solid rgba(255, 255, 255, 0.05)',
+              fontSize: '12px',
+              color: 'var(--text-muted)'
+            }}
+          >
+            <div 
+              onClick={() => setShowSource(!showSource)} 
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
+            >
+              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Source Text ({sourceText.length} chars)
+              </span>
+              {showSource ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </div>
+            
+            {showSource && (
+              <div 
+                className="selectable"
+                style={{ 
+                  marginTop: '6px', 
+                  maxHeight: '60px', 
+                  overflowY: 'auto', 
+                  whiteSpace: 'pre-wrap', 
+                  color: 'var(--text-main)',
+                  fontSize: '12px',
+                  lineHeight: '1.4',
+                  userSelect: 'text',
+                  WebkitUserSelect: 'text'
+                }}
+              >
+                {sourceText}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Translation Result Output */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          {errorMessage ? (
+            <div 
+              style={{ 
+                background: 'rgba(239, 68, 68, 0.1)', 
+                border: '1px solid rgba(239, 68, 68, 0.3)', 
+                borderRadius: 'var(--radius-md)', 
+                padding: '12px', 
+                color: '#fca5a5',
+                fontSize: '12px',
+                display: 'flex',
+                gap: '10px',
+                alignItems: 'flex-start'
+              }}
+            >
+              <AlertTriangle size={18} color="#ef4444" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div>
+                <strong style={{ display: 'block', marginBottom: '4px' }}>LM Studio Connection Error</strong>
+                <p style={{ margin: 0, lineHeight: '1.4' }}>{errorMessage}</p>
+                <button 
+                  className="btn-primary" 
+                  onClick={() => api.openSettingsWindow()}
+                  style={{ marginTop: '10px', padding: '4px 10px', fontSize: '11px' }}
+                >
+                  <Settings size={12} /> Check Connection Settings
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div 
+              className={`selectable ${isLoading ? 'typing-indicator' : ''}`}
+              style={{ 
+                flex: 1, 
+                minHeight: '100px', 
+                fontSize: '13.5px', 
+                lineHeight: '1.55', 
+                color: 'var(--text-main)', 
+                whiteSpace: 'pre-wrap',
+                background: 'rgba(11, 15, 25, 0.5)',
+                padding: '10px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--glass-border)',
+                userSelect: 'text',
+                WebkitUserSelect: 'text',
+                cursor: 'text'
+              }}
+            >
+              {translatedText ? (
+                translatedText
+              ) : isLoading ? (
+                <span style={{ color: 'var(--text-dim)', fontStyle: 'italic' }}>Translating with LM Studio...</span>
+              ) : (
+                <span style={{ color: 'var(--text-dim)' }}>
+                  Press <kbd style={{ background: '#1e293b', padding: '2px 6px', borderRadius: '4px', border: '1px solid #334155' }}>Alt+T</kbd> after selecting text anywhere on your PC to translate instantly.
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Action Footer */}
+      <div 
+        style={{
+          padding: '8px 12px',
+          background: 'rgba(11, 15, 25, 0.6)',
+          borderTop: '1px solid var(--glass-border)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {/* Copy Button */}
+          <button 
+            className={`btn-icon ${copied ? 'active' : ''}`}
+            onClick={handleCopy}
+            disabled={!translatedText}
+            title="Copy Translation"
+          >
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+          </button>
+
+          {/* Text to Speech */}
+          <button 
+            className="btn-icon" 
+            onClick={handleSpeak}
+            disabled={!translatedText}
+            title="Listen Read Aloud"
+          >
+            <Volume2 size={14} />
+          </button>
+
+          {/* Regenerate */}
+          <button 
+            className="btn-icon" 
+            onClick={handleRegenerate}
+            disabled={isLoading || !sourceText}
+            title="Re-translate"
+          >
+            <RotateCw size={14} className={isLoading ? 'spin' : ''} />
+          </button>
+        </div>
+
+        <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
+          {translatedText ? `${translatedText.split(/\s+/).filter(Boolean).length} words` : 'LM Studio AI'}
+        </span>
+      </div>
+    </div>
+  );
+};
