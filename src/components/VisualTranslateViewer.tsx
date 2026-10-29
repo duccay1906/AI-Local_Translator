@@ -291,7 +291,7 @@ export const VisualTranslateViewer: React.FC<VisualTranslateViewerProps> = ({
               type="button"
               className="btn-icon"
               onClick={() => setFontScale((s) => Math.max(0.7, +(s - 0.1).toFixed(1)))}
-              title="Decrease Font Size (Thu nhỏ chữ)"
+              title="Decrease Font Size"
               style={{ width: '20px', height: '20px', fontSize: '10px', fontWeight: 700 }}
             >
               A-
@@ -311,7 +311,7 @@ export const VisualTranslateViewer: React.FC<VisualTranslateViewerProps> = ({
               type="button"
               className="btn-icon"
               onClick={() => setFontScale((s) => Math.min(1.4, +(s + 0.1).toFixed(1)))}
-              title="Increase Font Size (Phóng to chữ)"
+              title="Increase Font Size"
               style={{ width: '20px', height: '20px', fontSize: '10px', fontWeight: 700 }}
             >
               A+

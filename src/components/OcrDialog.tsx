@@ -25,7 +25,7 @@ import { api } from '../services/api';
 export const OcrDialog: React.FC = () => {
   const [ocrState, setOcrState] = useState<OcrStatePayload>({
     status: 'processing',
-    message: 'Đang nhận diện chữ trong ảnh (OCR)...',
+    message: 'Extracting text from image (OCR)...',
   });
   const [visualData, setVisualData] = useState<VisualTranslationPayload | null>(null);
   const [viewMode, setViewMode] = useState<'visual' | 'text'>('visual');
@@ -391,7 +391,7 @@ export const OcrDialog: React.FC = () => {
                 border: '1px solid rgba(99, 102, 241, 0.3)',
               }}
             >
-              {visualData.blocks.length} khối chữ
+              {visualData.blocks.length} block{visualData.blocks.length > 1 ? 's' : ''}
             </span>
           )}
           {visualData?.targetLanguage && (
@@ -418,7 +418,7 @@ export const OcrDialog: React.FC = () => {
                 type="button"
                 className={`btn-icon ${viewMode === 'visual' ? 'active' : ''}`}
                 onClick={() => setViewMode('visual')}
-                title="Xem ảnh đè bản dịch trực quan"
+                title="Visual in-place translation view"
                 style={{
                   width: 'auto',
                   padding: '2px 8px',
@@ -436,7 +436,7 @@ export const OcrDialog: React.FC = () => {
                 type="button"
                 className={`btn-icon ${viewMode === 'text' ? 'active' : ''}`}
                 onClick={() => setViewMode('text')}
-                title="Xem dạng văn bản thuần"
+                title="Plain text translation view"
                 style={{
                   width: 'auto',
                   padding: '2px 8px',
@@ -471,7 +471,7 @@ export const OcrDialog: React.FC = () => {
                   setScaleMode('original');
                   setZoom(100);
                 }}
-                title="Hiển thị theo kích thước gốc 100% (1:1 Native Resolution)"
+                title="Display at 100% original size (1:1 Native Resolution)"
                 style={{
                   width: 'auto',
                   padding: '2px 7px',
@@ -483,7 +483,7 @@ export const OcrDialog: React.FC = () => {
                 }}
               >
                 <Maximize2 size={11} />
-                <span>1:1 Gốc</span>
+                <span>1:1 Original</span>
               </button>
               <button
                 type="button"
@@ -492,7 +492,7 @@ export const OcrDialog: React.FC = () => {
                   setScaleMode('fit');
                   setZoom(100);
                 }}
-                title="Tự co vừa khung nhìn cửa sổ"
+                title="Fit to window viewport"
                 style={{
                   width: 'auto',
                   padding: '2px 7px',
@@ -504,7 +504,7 @@ export const OcrDialog: React.FC = () => {
                 }}
               >
                 <Minimize2 size={11} />
-                <span>Vừa khung</span>
+                <span>Fit Window</span>
               </button>
             </div>
           )}
@@ -526,7 +526,7 @@ export const OcrDialog: React.FC = () => {
                 type="button"
                 className="btn-icon"
                 onClick={() => setZoom((z) => Math.max(50, z - 15))}
-                title="Thu nhỏ ảnh"
+                title="Zoom out image"
                 style={{ width: '20px', height: '20px' }}
               >
                 <ZoomOut size={11} />
@@ -538,7 +538,7 @@ export const OcrDialog: React.FC = () => {
                 type="button"
                 className="btn-icon"
                 onClick={() => setZoom((z) => Math.min(250, z + 15))}
-                title="Phóng to ảnh"
+                title="Zoom in image"
                 style={{ width: '20px', height: '20px' }}
               >
                 <ZoomIn size={11} />
@@ -563,7 +563,7 @@ export const OcrDialog: React.FC = () => {
                 type="button"
                 className="btn-icon"
                 onClick={() => setFontScale((s) => Math.max(0.6, +(s - 0.1).toFixed(1)))}
-                title="Thu nhỏ cỡ chữ đè"
+                title="Decrease overlay font size"
                 style={{ width: '20px', height: '20px', fontSize: '10px', fontWeight: 700 }}
               >
                 A-
@@ -575,7 +575,7 @@ export const OcrDialog: React.FC = () => {
                 type="button"
                 className="btn-icon"
                 onClick={() => setFontScale((s) => Math.min(1.5, +(s + 0.1).toFixed(1)))}
-                title="Phóng to cỡ chữ đè"
+                title="Increase overlay font size"
                 style={{ width: '20px', height: '20px', fontSize: '10px', fontWeight: 700 }}
               >
                 A+
@@ -589,11 +589,11 @@ export const OcrDialog: React.FC = () => {
               type="button"
               className={`btn-icon ${showOriginal ? 'active' : ''}`}
               onClick={() => setShowOriginal(!showOriginal)}
-              title={showOriginal ? 'Hiển thị bản dịch' : 'Giữ/Xem ảnh gốc ban đầu'}
+              title={showOriginal ? 'Show translated image' : 'View original raw image'}
               style={{ width: 'auto', padding: '2px 8px', height: '22px', fontSize: '11px', gap: '4px' }}
             >
               {showOriginal ? <EyeOff size={11} /> : <Eye size={11} />}
-              <span>{showOriginal ? 'Ảnh Gốc' : 'So sánh'}</span>
+              <span>{showOriginal ? 'Original' : 'Compare'}</span>
             </button>
           )}
 
@@ -603,11 +603,11 @@ export const OcrDialog: React.FC = () => {
               type="button"
               className={`btn-icon ${copiedImage ? 'active' : ''}`}
               onClick={handleCopyImage}
-              title="Sao chép ảnh đã dịch vào clipboard (Dán vào Zalo/Messenger/Word)"
+              title="Copy translated image to clipboard (Paste anywhere)"
               style={{ width: 'auto', padding: '2px 8px', height: '22px', fontSize: '11px', gap: '4px' }}
             >
               {copiedImage ? <Check size={11} /> : <Copy size={11} />}
-              <span>{copiedImage ? 'Đã sao chép!' : 'Copy Ảnh'}</span>
+              <span>{copiedImage ? 'Copied!' : 'Copy Image'}</span>
             </button>
           )}
 
@@ -617,7 +617,7 @@ export const OcrDialog: React.FC = () => {
               type="button"
               className="btn-icon"
               onClick={handleDownload}
-              title="Tải ảnh đã dịch về máy (PNG)"
+              title="Download translated image as PNG"
               style={{ width: '24px', height: '22px' }}
             >
               <Download size={11} />
@@ -630,11 +630,11 @@ export const OcrDialog: React.FC = () => {
               type="button"
               className={`btn-icon ${copiedText ? 'active' : ''}`}
               onClick={handleCopyAllText}
-              title="Sao chép toàn bộ văn bản dịch"
+              title="Copy all translated text"
               style={{ width: 'auto', padding: '2px 8px', height: '22px', fontSize: '11px', gap: '4px' }}
             >
               {copiedText ? <Check size={11} /> : <Copy size={11} />}
-              <span>{copiedText ? 'Đã sao chép!' : 'Copy Text'}</span>
+              <span>{copiedText ? 'Copied!' : 'Copy Text'}</span>
             </button>
           )}
 
@@ -643,7 +643,7 @@ export const OcrDialog: React.FC = () => {
             type="button"
             className={`btn-icon ${isPinned ? 'active' : ''}`}
             onClick={handleTogglePin}
-            title={isPinned ? 'Bỏ ghim cửa sổ' : 'Ghim cửa sổ trên cùng (Không tự đóng khi click ra ngoài)'}
+            title={isPinned ? 'Unpin window' : 'Pin window on top (keeps open when clicking outside)'}
             style={{ width: '24px', height: '22px' }}
           >
             {isPinned ? <PinOff size={11} /> : <Pin size={11} />}
@@ -654,7 +654,7 @@ export const OcrDialog: React.FC = () => {
             type="button"
             className="btn-icon"
             onClick={() => api.closeOcrDialog()}
-            title="Đóng (Esc)"
+            title="Close (Esc)"
             style={{ width: '24px', height: '22px', color: 'var(--text-muted)' }}
           >
             <X size={13} />
@@ -682,10 +682,10 @@ export const OcrDialog: React.FC = () => {
             </div>
             <div style={{ textAlign: 'center' }}>
               <span style={{ fontSize: '14px', fontWeight: 600, color: '#f8fafc', display: 'block' }}>
-                {ocrState.message || 'Đang xử lý nhận diện và dịch hình ảnh...'}
+                {ocrState.message || 'Extracting & translating text regions...'}
               </span>
               <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
-                Đang sử dụng LM Studio (Gemma 4) để dịch từng vùng văn bản
+                Translating text segments with LM Studio (AI)...
               </span>
             </div>
 
@@ -725,7 +725,7 @@ export const OcrDialog: React.FC = () => {
           >
             <AlertTriangle size={36} color="var(--danger)" />
             <span style={{ fontSize: '13px', color: '#f87171', textAlign: 'center', maxWidth: '420px', lineHeight: 1.5 }}>
-              {ocrState.message || 'Không tìm thấy ký tự hoặc xảy ra lỗi khi trích xuất hình ảnh.'}
+              {ocrState.message || 'No readable text found or an error occurred during image extraction.'}
             </span>
             <button
               type="button"
@@ -733,7 +733,7 @@ export const OcrDialog: React.FC = () => {
               onClick={() => api.closeOcrDialog()}
               style={{ marginTop: '10px', padding: '6px 16px', fontSize: '12px' }}
             >
-              Đóng cửa sổ
+              Close Window
             </button>
           </div>
         )}
@@ -806,7 +806,7 @@ export const OcrDialog: React.FC = () => {
                       onMouseEnter={() => setHoveredBlockId(block.id)}
                       onMouseLeave={() => setHoveredBlockId(null)}
                       onClick={() => handleCopyTranslatedBlock(block)}
-                      title={`Nhấp để copy bản dịch:\n"${block.translatedText}"`}
+                      title={`Click to copy translation:\n"${block.translatedText}"`}
                       style={{
                         position: 'absolute',
                         left: `${leftPct}%`,
@@ -866,13 +866,13 @@ export const OcrDialog: React.FC = () => {
                 }}
               >
                 <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)' }}>
-                  VĂN BẢN GỐC (OCR)
+                  ORIGINAL TEXT (OCR)
                 </span>
                 <button
                   type="button"
                   className="btn-icon"
                   onClick={() => api.copyToClipboard(visualData.fullOriginalText)}
-                  title="Sao chép văn bản gốc"
+                  title="Copy original text"
                   style={{ width: '20px', height: '20px' }}
                 >
                   <Copy size={11} />
@@ -917,13 +917,13 @@ export const OcrDialog: React.FC = () => {
                 }}
               >
                 <span style={{ fontSize: '11px', fontWeight: 600, color: '#818cf8' }}>
-                  BẢN DỊCH ({visualData.targetLanguage})
+                  TRANSLATION ({visualData.targetLanguage})
                 </span>
                 <button
                   type="button"
                   className="btn-icon"
                   onClick={handleCopyAllText}
-                  title="Sao chép bản dịch"
+                  title="Copy translation"
                   style={{ width: '20px', height: '20px' }}
                 >
                   {copiedText ? <Check size={11} /> : <Copy size={11} />}
@@ -966,7 +966,7 @@ export const OcrDialog: React.FC = () => {
         >
           <div style={{ flex: 1, overflow: 'hidden' }}>
             <span style={{ color: 'var(--text-muted)', fontSize: '11px', display: 'block', marginBottom: '2px' }}>
-              Gốc: "{hoveredBlock.originalText}"
+              Original: "{hoveredBlock.originalText}"
             </span>
             <span style={{ color: '#38bdf8', fontWeight: 600, fontSize: '12.5px' }}>
               → {hoveredBlock.translatedText}
@@ -977,7 +977,7 @@ export const OcrDialog: React.FC = () => {
             type="button"
             className="btn-icon"
             onClick={() => handleCopyTranslatedBlock(hoveredBlock)}
-            title="Sao chép câu dịch này"
+            title="Copy this translation"
             style={{ width: '24px', height: '24px', flexShrink: 0 }}
           >
             {copiedId === hoveredBlock.id ? <Check size={12} /> : <Copy size={12} />}

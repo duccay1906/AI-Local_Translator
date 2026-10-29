@@ -883,7 +883,7 @@ ipcMain.on('complete-snip-selection', async (_, payload: SnipSelectionResult) =>
 
   ocrDialogWindow?.webContents.send('ocr-state-change', {
     status: 'processing',
-    message: 'Đang nhận diện ký tự từ ảnh (OCR)...',
+    message: 'Extracting text from image (OCR)...',
     imagePreview: croppedImageDataUrl,
   });
 
@@ -905,7 +905,7 @@ ipcMain.on('complete-snip-selection', async (_, payload: SnipSelectionResult) =>
     if (!fullText || !fullText.trim() || blocks.length === 0) {
       ocrDialogWindow?.webContents.send('ocr-state-change', {
         status: 'error',
-        message: 'Không tìm thấy chữ trong vùng đã chọn. Bạn hãy thử chụp lại rõ hơn hoặc đổi ngôn ngữ OCR.',
+        message: 'No readable text found in the selected area. Try selecting a clearer region or switching the OCR language.',
         imagePreview: croppedImageDataUrl,
       });
       return;
@@ -914,7 +914,7 @@ ipcMain.on('complete-snip-selection', async (_, payload: SnipSelectionResult) =>
     const targetLang = activeSettings.targetLanguage || 'Vietnamese';
     ocrDialogWindow?.webContents.send('ocr-state-change', {
       status: 'processing',
-      message: `Đang dịch ${blocks.length} khối văn bản với LM Studio...`,
+      message: `Translating ${blocks.length} text region${blocks.length > 1 ? 's' : ''} with LM Studio...`,
       imagePreview: croppedImageDataUrl,
     });
 
@@ -958,7 +958,7 @@ ipcMain.on('complete-snip-selection', async (_, payload: SnipSelectionResult) =>
   } catch (err: any) {
     ocrDialogWindow?.webContents.send('ocr-state-change', {
       status: 'error',
-      message: err.message || 'Lỗi khi nhận diện ký tự từ ảnh.',
+      message: err.message || 'Error extracting text from image.',
       imagePreview: croppedImageDataUrl,
     });
   }
