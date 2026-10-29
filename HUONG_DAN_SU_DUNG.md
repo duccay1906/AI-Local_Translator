@@ -55,9 +55,18 @@
      - `Auto Detect`: Tự động nhận diện (Anh / Hàn / Nhật / Trung / Việt).
      - Hoặc chọn cố định từng tiếng: `Korean + English`, `Japanese + English`, `Chinese + English`, `English Only`,...
    - Nếu muốn hủy chụp: Nhấn phím **`Esc`** hoặc **click chuột phải**.
-4. Khi bạn **thả chuột trái**, ứng dụng sẽ tự động kích hoạt tính năng **Dịch đè chữ trực tiếp (In-place Visual Translation)**:
-   - Nhận diện chính xác tọa độ vị trí của từng đoạn chat / khối chữ trên ảnh.
-   - Gửi sang AI dịch giữ nguyên ngữ cảnh và đè câu dịch tiếng Việt vào đúng vị trí của chữ gốc trên ảnh (tự động lấy mẫu màu nền và căn chỉnh font chữ vừa khít).
+4. Khi bạn **thả chuột trái**, ứng dụng sẽ tự động kích hoạt **Dialog OCR chuyên biệt (Visual OCR Translator)**:
+   - **Kích thước thích ứng thông minh (1:1 Native Resolution)**: Cửa sổ OCR Dialog tự động mở rộng theo kích thước thật của ảnh chụp (tối đa tới 90% màn hình), giữ nguyên độ phân giải 100% gốc không bị co rúm hay vỡ nét.
+   - **Tách biệt hoàn toàn với dịch Text**: Dịch văn bản bôi đen (F8) vẫn dùng popup nhỏ gọn 420px; còn dịch ảnh (F9) sở hữu không gian riêng rộng rãi, chuyên nghiệp.
+   - **Bộ công cụ trực quan**:
+     - `1:1 Gốc / Vừa khung`: Chuyển đổi giữa kích thước 100% pixel gốc và tự co vừa màn hình.
+     - `[-] / [+]`: Tùy ý phóng to / thu nhỏ tỉ lệ ảnh (50% - 250%).
+     - `[A-] / [A+]`: Tùy chỉnh cỡ chữ dịch đè lên ảnh (60% - 150%).
+     - `[So sánh (Original)]`: Nhấn giữ hoặc bấm để xem ảnh gốc trước khi dịch.
+     - `[Visual / Text]`: Chuyển đổi linh hoạt giữa chế độ xem ảnh đè chữ trực quan và chế độ xem văn bản thuần 2 cột.
+     - `[Copy Ảnh]`: Sao chép ảnh đã dịch vào clipboard để dán thẳng vào Zalo, Messenger, Word,...
+     - `[Tải ảnh PNG]`: Lưu file ảnh đã dịch về máy tính.
+     - `[Ghim (Pin)]`: Ghim cửa sổ trên cùng để không tự đóng khi bấm ra ngoài.
    - **Nút Compare (Original):** Bấm để so sánh đối chiếu giữa ảnh dịch và ảnh gốc ban đầu.
    - **Click vào bong bóng chat bất kỳ:** Tự động copy câu dịch của đoạn chat đó.
    - **Nút Copy Image:** Sao chép thẳng bức ảnh đã dịch vào Clipboard để dán (Ctrl+V) ngay vào tin nhắn hoặc tài liệu.
