@@ -35,6 +35,7 @@ export const OcrDialog: React.FC = () => {
   const [showOriginal, setShowOriginal] = useState<boolean>(false);
   const [isPinned, setIsPinned] = useState<boolean>(false);
   const [hoveredBlockId, setHoveredBlockId] = useState<number | null>(null);
+  const [selectedBlockId, setSelectedBlockId] = useState<number | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [copiedImage, setCopiedImage] = useState<boolean>(false);
   const [copiedText, setCopiedText] = useState<boolean>(false);
@@ -325,7 +326,8 @@ export const OcrDialog: React.FC = () => {
     a.click();
   };
 
-  const hoveredBlock = visualData?.blocks.find((b) => b.id === hoveredBlockId);
+  const activeBlockId = hoveredBlockId !== null ? hoveredBlockId : selectedBlockId;
+  const activeBlock = visualData?.blocks.find((b) => b.id === activeBlockId);
   const currentImagePreview = visualData?.imagePreview || ocrState.imagePreview;
 
   return (
@@ -802,13 +804,19 @@ export const OcrDialog: React.FC = () => {
                   const widthPct = ((block.bbox.x1 - block.bbox.x0) / canvasW) * 100;
                   const heightPct = ((block.bbox.y1 - block.bbox.y0) / canvasH) * 100;
 
+                  const isCurrent = activeBlockId === block.id;
+
                   return (
                     <div
                       key={block.id}
                       onMouseEnter={() => setHoveredBlockId(block.id)}
                       onMouseLeave={() => setHoveredBlockId(null)}
-                      onClick={() => handleCopyTranslatedBlock(block)}
-                      title={`Click to copy translation:\n"${block.translatedText}"`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedBlockId(block.id);
+                        handleCopyTranslatedBlock(block);
+                      }}
+                      title={`Click to select & copy translation:\n"${block.translatedText}"`}
                       style={{
                         position: 'absolute',
                         left: `${leftPct}%`,
@@ -817,13 +825,11 @@ export const OcrDialog: React.FC = () => {
                         height: `${heightPct}%`,
                         cursor: 'pointer',
                         borderRadius: '3px',
-                        border:
-                          hoveredBlockId === block.id
-                            ? '1.5px solid var(--accent-primary)'
-                            : '1px solid transparent',
-                        backgroundColor:
-                          hoveredBlockId === block.id ? 'rgba(99, 102, 241, 0.18)' : 'transparent',
-                        transition: 'all 0.1s ease',
+                        border: isCurrent
+                          ? '1.5px solid var(--accent-primary)'
+                          : '1px solid transparent',
+                        backgroundColor: isCurrent ? 'rgba(99, 102, 241, 0.22)' : 'transparent',
+                        transition: 'border-color 0.1s ease, background-color 0.1s ease',
                       }}
                     />
                   );
@@ -950,40 +956,50 @@ export const OcrDialog: React.FC = () => {
         )}
       </div>
 
-      {/* Floating Info Tooltip when hovering over a block */}
-      {hoveredBlock && (
+      {/* Persistent Bottom Detail / Inspector Bar */}
+      {ocrState.status === 'done' && viewMode === 'visual' && (
         <div
           style={{
-            padding: '8px 14px',
+            minHeight: '42px',
+            height: '42px',
+            padding: '6px 14px',
             background: 'rgba(15, 23, 42, 0.96)',
-            borderTop: '1px solid var(--accent-primary)',
-            fontSize: '12px',
-            lineHeight: '1.45',
+            borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+            fontSize: '11.5px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: '10px',
-            boxShadow: '0 -4px 16px rgba(0,0,0,0.5)',
+            gap: '12px',
+            flexShrink: 0,
           }}
         >
-          <div style={{ flex: 1, overflow: 'hidden' }}>
-            <span style={{ color: 'var(--text-muted)', fontSize: '11px', display: 'block', marginBottom: '2px' }}>
-              Original: "{hoveredBlock.originalText}"
-            </span>
-            <span style={{ color: '#38bdf8', fontWeight: 600, fontSize: '12.5px' }}>
-              → {hoveredBlock.translatedText}
-            </span>
-          </div>
+          {activeBlock ? (
+            <>
+              <div style={{ flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '11px', marginRight: '8px' }}>
+                  Original: "{activeBlock.originalText}"
+                </span>
+                <span style={{ color: '#38bdf8', fontWeight: 600, fontSize: '12px' }}>
+                  → {activeBlock.translatedText}
+                </span>
+              </div>
 
-          <button
-            type="button"
-            className="btn-icon"
-            onClick={() => handleCopyTranslatedBlock(hoveredBlock)}
-            title="Copy this translation"
-            style={{ width: '24px', height: '24px', flexShrink: 0 }}
-          >
-            {copiedId === hoveredBlock.id ? <Check size={12} /> : <Copy size={12} />}
-          </button>
+              <button
+                type="button"
+                className="btn-icon"
+                onClick={() => handleCopyTranslatedBlock(activeBlock)}
+                title="Copy this translation"
+                style={{ width: 'auto', padding: '2px 8px', height: '24px', fontSize: '11px', gap: '4px', flexShrink: 0 }}
+              >
+                {copiedId === activeBlock.id ? <Check size={12} /> : <Copy size={12} />}
+                <span>{copiedId === activeBlock.id ? 'Copied!' : 'Copy'}</span>
+              </button>
+            </>
+          ) : (
+            <div style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>Hover or click any text block on the image to inspect and copy its translation</span>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -16,6 +16,7 @@ export const VisualTranslateViewer: React.FC<VisualTranslateViewerProps> = ({
 }) => {
   const [showOriginal, setShowOriginal] = useState<boolean>(false);
   const [hoveredBlockId, setHoveredBlockId] = useState<number | null>(null);
+  const [selectedBlockId, setSelectedBlockId] = useState<number | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [copiedImage, setCopiedImage] = useState<boolean>(false);
   const [renderedImageUrl, setRenderedImageUrl] = useState<string | null>(null);
@@ -430,43 +431,55 @@ export const VisualTranslateViewer: React.FC<VisualTranslateViewerProps> = ({
         </div>
       </div>
 
-      {/* Floating Info Tooltip when hovering over a block or clicked */}
-      {hoveredBlock && (
-        <div
-          style={{
-            padding: '6px 10px',
-            background: 'rgba(15, 23, 42, 0.95)',
-            border: '1px solid var(--accent-primary)',
-            borderRadius: '6px',
-            fontSize: '11.5px',
-            lineHeight: '1.4',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-          }}
-        >
-          <div style={{ flex: 1, overflow: 'hidden' }}>
-            <span style={{ color: 'var(--text-muted)', fontSize: '10.5px', display: 'block' }}>
-              Original: "{hoveredBlock.originalText}"
-            </span>
-            <span style={{ color: '#38bdf8', fontWeight: 600 }}>
-              → {hoveredBlock.translatedText}
-            </span>
-          </div>
+      {/* Persistent Bottom Detail Bar (Zero layout shifts, zero flickering) */}
+      <div
+        style={{
+          minHeight: '38px',
+          height: '38px',
+          padding: '4px 10px',
+          background: 'rgba(15, 23, 42, 0.95)',
+          borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: '6px',
+          fontSize: '11px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '8px',
+          flexShrink: 0,
+        }}
+      >
+        {blocks.find((b) => b.id === (hoveredBlockId !== null ? hoveredBlockId : selectedBlockId)) ? (
+          (() => {
+            const active = blocks.find((b) => b.id === (hoveredBlockId !== null ? hoveredBlockId : selectedBlockId))!;
+            return (
+              <>
+                <div style={{ flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '10.5px', marginRight: '6px' }}>
+                    Original: "{active.originalText}"
+                  </span>
+                  <span style={{ color: '#38bdf8', fontWeight: 600 }}>
+                    → {active.translatedText}
+                  </span>
+                </div>
 
-          <button
-            type="button"
-            className="btn-icon"
-            onClick={() => handleCopyTranslatedBlock(hoveredBlock)}
-            title="Copy this translation"
-            style={{ width: '22px', height: '22px', flexShrink: 0 }}
-          >
-            {copiedId === hoveredBlock.id ? <Check size={12} /> : <Copy size={12} />}
-          </button>
-        </div>
-      )}
+                <button
+                  type="button"
+                  className="btn-icon"
+                  onClick={() => handleCopyTranslatedBlock(active)}
+                  title="Copy this translation"
+                  style={{ width: '22px', height: '22px', flexShrink: 0 }}
+                >
+                  {copiedId === active.id ? <Check size={12} /> : <Copy size={12} />}
+                </button>
+              </>
+            );
+          })()
+        ) : (
+          <div style={{ color: 'var(--text-dim)', fontSize: '10.5px' }}>
+            <span>Hover or click any text block on the image to inspect and copy its translation</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
