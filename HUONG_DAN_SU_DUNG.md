@@ -147,7 +147,7 @@ Nếu cơ quan hoặc văn phòng của bạn có một máy tính trang bị ca
 Hệ thống cập nhật nội bộ cho phép toàn bộ máy tính nhân viên trong công ty tự động nhận bản cập nhật mới nhất từ máy chủ LAN mà **không cần kết nối Internet ra ngoài** và **không cần mua chứng chỉ bảo mật số đắt đỏ (Code Signing Certificate)**.
 
 ### 6.1. Nguyên lý hoạt động
-1. **Máy chủ LAN (Host):** Lưu trữ file thực thi `.exe` phiên bản mới trong thư mục `updates/` và cung cấp file chỉ mục `version.json` qua cổng HTTP (mặc định cổng `8080`, ví dụ: `http://192.168.1.6:8080/updates`).
+1. **Máy chủ LAN (Host):** Lưu trữ file thực thi `.exe` phiên bản mới trong thư mục `updates/` và cung cấp file chỉ mục `version.json` qua cổng HTTP (mặc định cổng `8080`, ví dụ: `http://192.168.1.12:8080/updates`).
 2. **Máy người dùng (Client):** 
    - Sau khi khởi động 8 giây, app tự động gửi truy vấn kiểm tra phiên bản trên máy chủ LAN trong nền.
    - Nếu có phiên bản mới hơn phiên bản hiện tại, app sẽ bật thông báo kèm danh sách các tính năng mới (Changelog).
@@ -175,12 +175,12 @@ npm run updates:publish "Bổ sung tính năng Visual OCR và giao diện xem �
 *Lệnh này sẽ tự động copy file `.exe` mới nhất vào thư mục `updates/` và cập nhật file `version.json`.*
 
 #### Bước 3: Khởi động Server cấp phát cập nhật trên máy chủ LAN
-Trên máy chủ nội bộ (ví dụ máy IP `192.168.1.6`), chạy lệnh:
+Trên máy chủ nội bộ (ví dụ máy IP `192.168.1.12`), chạy lệnh:
 ```powershell
 npm run updates:serve
 ```
 Server sẽ chạy trên cổng `8080` (hoặc cổng cấu hình). Màn hình console sẽ in ra đường dẫn kiểm tra:
-`http://192.168.1.6:8080/updates/version.json`
+`http://192.168.1.12:8080/updates/version.json`
 
 ---
 
@@ -189,7 +189,7 @@ Server sẽ chạy trên cổng `8080` (hoặc cổng cấu hình). Màn hình c
 1. Mở ứng dụng **AI Local Translator** trên máy trạm.
 2. Mở **Settings** → chọn tab **Software Updates**:
    - **Current Version:** Hiển thị phiên bản app đang chạy trên máy (ví dụ `v1.0.1`).
-   - **Internal LAN Update Server:** Nhập địa chỉ máy chủ cập nhật (ví dụ: `http://192.168.1.6:8080/updates`).
+   - **Internal LAN Update Server:** Nhập địa chỉ máy chủ cập nhật (ví dụ: `http://192.168.1.12:8080/updates`).
    - Tích chọn **Automatically check for updates on startup**.
    - Bấm **Check for Updates**: App sẽ kết nối đến máy chủ LAN để kiểm tra.
 3. Khi có bản cập nhật mới:

@@ -84,7 +84,7 @@ function ensureUserDataDir() {
 }
 
 const defaultSettings: AppSettings = {
-  lmStudioUrl: 'http://192.168.1.130:1234',
+  lmStudioUrl: 'http://192.168.1.12:1234',
   modelName: '',
   targetLanguage: 'Vietnamese',
   systemPrompt: 'You are a professional translator. Translate the given text into {targetLanguage}. Output ONLY the translated text without extra explanation.',
@@ -97,7 +97,7 @@ const defaultSettings: AppSettings = {
   autoCopySelection: true,
   theme: 'dark',
   opacity: 0.92,
-  updateServerUrl: 'http://192.168.1.6:8080/updates',
+  updateServerUrl: 'http://192.168.1.12:8080/updates',
   autoCheckUpdate: true,
 };
 
@@ -721,7 +721,7 @@ app.whenReady().then(() => {
 
 async function runBackgroundUpdateCheck() {
   try {
-    const serverUrl = activeSettings.updateServerUrl || 'http://192.168.1.6:8080/updates';
+    const serverUrl = activeSettings.updateServerUrl || 'http://192.168.1.12:8080/updates';
     const result = await checkForUpdates(serverUrl);
     if (result.hasUpdate && result.updateInfo) {
       const { response } = await dialog.showMessageBox({
@@ -787,7 +787,7 @@ ipcMain.handle('clear-history', () => {
 
 // Auto-Updater IPC
 ipcMain.handle('check-for-updates', async () => {
-  const serverUrl = activeSettings.updateServerUrl || 'http://192.168.1.6:8080/updates';
+  const serverUrl = activeSettings.updateServerUrl || 'http://192.168.1.12:8080/updates';
   return await checkForUpdates(serverUrl);
 });
 

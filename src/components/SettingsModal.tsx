@@ -140,7 +140,7 @@ const HotkeyRecorder: React.FC<{ value: string; onChange: (shortcut: string) => 
 export const SettingsModal: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'general' | 'prompt' | 'updates' | 'history'>('general');
   const [settings, setSettings] = useState<AppSettings>({
-    lmStudioUrl: 'http://192.168.1.130:1234',
+    lmStudioUrl: 'http://192.168.1.12:1234',
     modelName: 'local-model',
     targetLanguage: 'Vietnamese',
     systemPrompt: 'You are a professional translator. Translate the given text into {targetLanguage}. Output ONLY the translated text without extra explanation.',
@@ -152,7 +152,7 @@ export const SettingsModal: React.FC = () => {
     autoStartWithWindows: true,
     autoCopySelection: true,
     theme: 'dark',
-    updateServerUrl: 'http://192.168.1.6:8080/updates',
+    updateServerUrl: 'http://192.168.1.12:8080/updates',
     autoCheckUpdate: true,
   });
 
@@ -655,13 +655,13 @@ export const SettingsModal: React.FC = () => {
 
                 <div style={{ marginBottom: '12px' }}>
                   <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
-                    Server URL (e.g., http://192.168.1.6:8080/updates):
+                    Server URL (e.g., http://192.168.1.12:8080/updates):
                   </label>
                   <input
                     type="text"
                     className="form-input"
                     value={settings.updateServerUrl || ''}
-                    placeholder="http://192.168.1.6:8080/updates"
+                    placeholder="http://192.168.1.12:8080/updates"
                     onChange={(e) => setSettings({ ...settings, updateServerUrl: e.target.value })}
                   />
                 </div>
@@ -833,7 +833,7 @@ export const SettingsModal: React.FC = () => {
                 }}
               >
                 💡 <strong>Admin Notice:</strong> To push updates across the network, run{' '}
-                <code style={{ color: 'var(--accent-primary)' }}>npm run updates:serve</code> on your host server (e.g. 192.168.1.6). All client machines will detect and offer updates on launch.
+                <code style={{ color: 'var(--accent-primary)' }}>npm run updates:serve</code> on your host server (e.g. 192.168.1.12). All client machines will detect and offer updates on launch.
               </div>
             </div>
           )}
