@@ -843,15 +843,6 @@ ipcMain.on('complete-snip-selection', async (_, payload: SnipSelectionResult) =>
       y: targetY,
     });
 
-    // Also populate standard text translation stream
-    popupWindow?.webContents.send('trigger-translate', {
-      text: fullText,
-      x: targetX,
-      y: targetY,
-      imagePreview: croppedImageDataUrl,
-    });
-    popupWindow?.webContents.send('translate-complete', fullTranslatedText);
-
     // Save to history
     const history = loadHistory();
     saveHistoryToDisk([

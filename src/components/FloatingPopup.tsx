@@ -259,35 +259,36 @@ export const FloatingPopup: React.FC = () => {
 
         {/* Controls */}
         <div className="no-drag" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {/* Mode Switcher when Visual Translation is available */}
-          {visualData && (
+          {/* Mode Switcher when Visual Translation / Image is available */}
+          {(visualData || imagePreview) && (
             <div 
               style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
-                background: 'rgba(15, 23, 42, 0.8)', 
+                background: 'rgba(15, 23, 42, 0.9)', 
                 borderRadius: '6px', 
                 padding: '2px', 
-                border: '1px solid rgba(255, 255, 255, 0.1)' 
+                border: '1px solid rgba(99, 102, 241, 0.4)',
+                marginRight: '2px'
               }}
             >
               <button
                 type="button"
                 className={`btn-icon ${viewMode === 'visual' ? 'active' : ''}`}
                 onClick={() => setViewMode('visual')}
-                title="Visual In-place Translation"
-                style={{ height: '22px', padding: '0 6px', fontSize: '10.5px', gap: '4px' }}
+                title="Visual In-place Translation (Ảnh đè chữ)"
+                style={{ height: '22px', padding: '0 8px', fontSize: '11px', gap: '4px', fontWeight: 600 }}
               >
-                <ImageIcon size={11} /> Visual
+                <ImageIcon size={12} color="var(--accent-primary)" /> Visual
               </button>
               <button
                 type="button"
                 className={`btn-icon ${viewMode === 'text' ? 'active' : ''}`}
                 onClick={() => setViewMode('text')}
-                title="Text Only View"
-                style={{ height: '22px', padding: '0 6px', fontSize: '10.5px', gap: '4px' }}
+                title="Text Only View (Văn bản thuần)"
+                style={{ height: '22px', padding: '0 8px', fontSize: '11px', gap: '4px', fontWeight: 600 }}
               >
-                <FileText size={11} /> Text
+                <FileText size={12} /> Text
               </button>
             </div>
           )}
