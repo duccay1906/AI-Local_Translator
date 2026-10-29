@@ -345,6 +345,7 @@ Output ONLY the numbered translations without notes or greetings.`;
               bbox: b.bbox,
               originalText: b.text,
               translatedText: translationsMap.get(b.id) || b.text,
+              lineCount: b.lineCount,
             }));
             resolve(results);
           } catch (e) {
@@ -354,6 +355,7 @@ Output ONLY the numbered translations without notes or greetings.`;
                 bbox: b.bbox,
                 originalText: b.text,
                 translatedText: b.text,
+                lineCount: b.lineCount,
               }))
             );
           }
@@ -367,6 +369,7 @@ Output ONLY the numbered translations without notes or greetings.`;
           bbox: b.bbox,
           originalText: b.text,
           translatedText: b.text,
+          lineCount: b.lineCount,
         }))
       );
     });

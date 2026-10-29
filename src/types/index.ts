@@ -61,6 +61,7 @@ export interface OcrTextBlock {
   bbox: BoundingBox;
   text: string;
   confidence: number;
+  lineCount?: number;
 }
 
 export interface VisualBlockTranslation {
@@ -68,6 +69,7 @@ export interface VisualBlockTranslation {
   bbox: BoundingBox;
   originalText: string;
   translatedText: string;
+  lineCount?: number;
 }
 
 export interface VisualTranslationPayload {

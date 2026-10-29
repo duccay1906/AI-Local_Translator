@@ -19,6 +19,7 @@ export const VisualTranslateViewer: React.FC<VisualTranslateViewerProps> = ({
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [copiedImage, setCopiedImage] = useState<boolean>(false);
   const [renderedImageUrl, setRenderedImageUrl] = useState<string | null>(null);
+  const [fontScale, setFontScale] = useState<number>(1.0);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -43,56 +44,59 @@ export const VisualTranslateViewer: React.FC<VisualTranslateViewerProps> = ({
 
       // 2. Inpaint and render each block
       for (const block of blocks) {
-        const { bbox, translatedText } = block;
+        const { bbox, translatedText, lineCount } = block;
         if (!bbox || !translatedText) continue;
 
-        const padX = 3;
+        const padX = 2;
         const padY = 2;
         const x = Math.max(0, bbox.x0 - padX);
         const y = Math.max(0, bbox.y0 - padY);
         const w = Math.min(canvas.width - x, bbox.x1 - bbox.x0 + padX * 2);
         const h = Math.min(canvas.height - y, bbox.y1 - bbox.y0 + padY * 2);
 
-        if (w <= 2 || h <= 2) continue;
+        if (w <= 3 || h <= 3) continue;
 
-        // Sample background color around the perimeter of the bounding box
-        let rSum = 0, gSum = 0, bSum = 0, count = 0;
-        try {
-          const samplePerimeter = (sampleX: number, sampleY: number) => {
-            if (sampleX >= 0 && sampleX < canvas.width && sampleY >= 0 && sampleY < canvas.height) {
-              const pixel = ctx.getImageData(sampleX, sampleY, 1, 1).data;
-              rSum += pixel[0];
-              gSum += pixel[1];
-              bSum += pixel[2];
-              count++;
-            }
-          };
+        // Sample background pixels around margins to find dominant background color
+        const sampledColors: { r: number; g: number; b: number; lum: number }[] = [];
+        const samplePixel = (sx: number, sy: number) => {
+          if (sx >= 0 && sx < canvas.width && sy >= 0 && sy < canvas.height) {
+            try {
+              const d = ctx.getImageData(sx, sy, 1, 1).data;
+              const lum = 0.299 * d[0] + 0.587 * d[1] + 0.114 * d[2];
+              sampledColors.push({ r: d[0], g: d[1], b: d[2], lum });
+            } catch (e) {}
+          }
+        };
 
-          // Sample 8 points around borders
-          samplePerimeter(x, y);
-          samplePerimeter(x + Math.floor(w / 2), y);
-          samplePerimeter(x + w, y);
-          samplePerimeter(x, y + h);
-          samplePerimeter(x + Math.floor(w / 2), y + h);
-          samplePerimeter(x + w, y + h);
-          samplePerimeter(x, y + Math.floor(h / 2));
-          samplePerimeter(x + w, y + Math.floor(h / 2));
-        } catch (e) {}
+        // Sample exterior/margin pixels (just outside and inside the bounding box)
+        samplePixel(Math.max(0, x - 2), Math.floor(y + h / 2));
+        samplePixel(Math.min(canvas.width - 1, x + w + 2), Math.floor(y + h / 2));
+        samplePixel(Math.floor(x + w / 2), Math.max(0, y - 2));
+        samplePixel(Math.floor(x + w / 2), Math.min(canvas.height - 1, y + h + 2));
+        samplePixel(x + 3, y + 2);
+        samplePixel(x + w - 3, y + 2);
+        samplePixel(x + 3, y + h - 2);
+        samplePixel(x + w - 3, y + h - 2);
 
-        const avgR = count > 0 ? Math.round(rSum / count) : 255;
-        const avgG = count > 0 ? Math.round(gSum / count) : 255;
-        const avgB = count > 0 ? Math.round(bSum / count) : 255;
+        // Sort by luminance to pick median color (avoids ink/borders)
+        let avgR = 255, avgG = 255, avgB = 255;
+        if (sampledColors.length > 0) {
+          sampledColors.sort((a, b) => a.lum - b.lum);
+          const median = sampledColors[Math.floor(sampledColors.length / 2)];
+          avgR = median.r;
+          avgG = median.g;
+          avgB = median.b;
+        }
 
-        // Determine text color based on background luminance
         const luminance = 0.299 * avgR + 0.587 * avgG + 0.114 * avgB;
         const isBgLight = luminance > 130;
         const textColor = isBgLight ? '#0f172a' : '#f8fafc';
         const bgColor = `rgb(${avgR}, ${avgG}, ${avgB})`;
 
-        // Draw filled rounded rectangle to erase original text
+        // Step 1: Draw filled background to erase original text
         ctx.save();
         ctx.fillStyle = bgColor;
-        const radius = Math.min(5, Math.floor(h / 4));
+        const radius = Math.min(6, Math.floor(h / 4));
         ctx.beginPath();
         if (ctx.roundRect) {
           ctx.roundRect(x, y, w, h, radius);
@@ -101,52 +105,101 @@ export const VisualTranslateViewer: React.FC<VisualTranslateViewerProps> = ({
         }
         ctx.fill();
 
-        // Optional subtle outline for clarity
-        ctx.strokeStyle = isBgLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.12)';
+        // Subtle boundary stroke for clean visual separation
+        ctx.strokeStyle = isBgLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)';
         ctx.lineWidth = 1;
         ctx.stroke();
 
-        // Calculate auto-fit font size
+        // Step 2: STRICT CLIPPING PATH
+        // Ensures translated text NEVER overflows or bleeds onto neighboring elements/bubbles!
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(x, y, w, h, radius);
+        } else {
+          ctx.rect(x, y, w, h);
+        }
+        ctx.clip();
+
+        // Step 3: Compute optimal font size and line wrapping
+        const availW = Math.max(12, w - 6);
+        const availH = Math.max(10, h - 4);
         const words = translatedText.split(/\s+/).filter(Boolean);
-        let bestFontSize = Math.min(18, Math.max(10, Math.floor(h * 0.42)));
+
+        const estLines = lineCount || Math.max(1, Math.round(h / 18));
+        const baseTargetSize = Math.floor((h / estLines) * 0.82 * fontScale);
+        const startFontSize = Math.min(22, Math.max(9, baseTargetSize));
+
+        let bestFontSize = 8;
         let bestLines: string[] = [];
 
-        for (let size = bestFontSize; size >= 9; size--) {
+        for (let size = startFontSize; size >= 7; size--) {
           ctx.font = `600 ${size}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
+          const lh = Math.round(size * 1.25);
+          const maxAllowedLines = Math.max(1, Math.floor(availH / lh));
+
           const lines: string[] = [];
-          let currentLine = '';
+          let cur = '';
 
           for (const word of words) {
-            const testLine = currentLine ? `${currentLine} ${word}` : word;
-            const metrics = ctx.measureText(testLine);
-            if (metrics.width > w - 6 && currentLine) {
-              lines.push(currentLine);
-              currentLine = word;
+            const test = cur ? `${cur} ${word}` : word;
+            if (ctx.measureText(test).width > availW && cur) {
+              lines.push(cur);
+              cur = word;
             } else {
-              currentLine = testLine;
+              cur = test;
             }
           }
-          if (currentLine) lines.push(currentLine);
+          if (cur) lines.push(cur);
 
-          const totalHeight = lines.length * (size * 1.25);
-          if (totalHeight <= h - 2 || size === 9) {
+          if (lines.length <= maxAllowedLines) {
             bestFontSize = size;
             bestLines = lines;
             break;
           }
         }
 
-        // Render text
+        // If even at size 7 the text has more lines than vertical space, truncate gracefully with ellipsis
+        if (bestLines.length === 0) {
+          bestFontSize = 7;
+          ctx.font = `600 ${bestFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+          const lines: string[] = [];
+          let cur = '';
+          for (const word of words) {
+            const test = cur ? `${cur} ${word}` : word;
+            if (ctx.measureText(test).width > availW && cur) {
+              lines.push(cur);
+              cur = word;
+            } else {
+              cur = test;
+            }
+          }
+          if (cur) lines.push(cur);
+          bestLines = lines;
+        }
+
+        const lineHeight = Math.round(bestFontSize * 1.25);
+        const maxLines = Math.max(1, Math.floor(availH / lineHeight));
+        if (bestLines.length > maxLines) {
+          bestLines = bestLines.slice(0, maxLines);
+          let last = bestLines[maxLines - 1];
+          while (last.length > 0 && ctx.measureText(last + '…').width > availW) {
+            last = last.slice(0, -1).trim();
+          }
+          bestLines[maxLines - 1] = (last || '') + '…';
+        }
+
+        // Step 4: Render text within vertical bounds
         ctx.fillStyle = textColor;
         ctx.font = `600 ${bestFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
 
-        const lineHeight = bestFontSize * 1.25;
-        const startY = y + h / 2 - ((bestLines.length - 1) * lineHeight) / 2;
+        const totalTextHeight = bestLines.length * lineHeight;
+        const startY = y + Math.max(2, Math.floor((h - totalTextHeight) / 2));
+        const startX = x + Math.max(3, Math.min(6, Math.floor(w * 0.03)));
 
         for (let i = 0; i < bestLines.length; i++) {
-          ctx.fillText(bestLines[i], x + w / 2, startY + i * lineHeight);
+          ctx.fillText(bestLines[i], startX, startY + i * lineHeight);
         }
 
         ctx.restore();
@@ -155,7 +208,7 @@ export const VisualTranslateViewer: React.FC<VisualTranslateViewerProps> = ({
       setRenderedImageUrl(canvas.toDataURL('image/png'));
     };
     img.src = imagePreview;
-  }, [imagePreview, blocks]);
+  }, [imagePreview, blocks, fontScale]);
 
   const handleCopyTranslatedBlock = (block: VisualBlockTranslation) => {
     api.copyToClipboard(block.translatedText);
@@ -222,6 +275,49 @@ export const VisualTranslateViewer: React.FC<VisualTranslateViewerProps> = ({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {/* Font Scale Adjustment */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '2px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              borderRadius: '4px',
+              padding: '1px 3px',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+            }}
+          >
+            <button
+              type="button"
+              className="btn-icon"
+              onClick={() => setFontScale((s) => Math.max(0.7, +(s - 0.1).toFixed(1)))}
+              title="Decrease Font Size (Thu nhỏ chữ)"
+              style={{ width: '20px', height: '20px', fontSize: '10px', fontWeight: 700 }}
+            >
+              A-
+            </button>
+            <span
+              style={{
+                fontSize: '10px',
+                color: 'var(--text-muted)',
+                minWidth: '28px',
+                textAlign: 'center',
+                userSelect: 'none',
+              }}
+            >
+              {Math.round(fontScale * 100)}%
+            </span>
+            <button
+              type="button"
+              className="btn-icon"
+              onClick={() => setFontScale((s) => Math.min(1.4, +(s + 0.1).toFixed(1)))}
+              title="Increase Font Size (Phóng to chữ)"
+              style={{ width: '20px', height: '20px', fontSize: '10px', fontWeight: 700 }}
+            >
+              A+
+            </button>
+          </div>
+
           {/* Toggle View Original Button */}
           <button
             type="button"

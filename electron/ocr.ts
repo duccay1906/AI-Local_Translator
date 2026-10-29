@@ -142,6 +142,87 @@ export interface ScoredOcrResult {
   score: number;
 }
 
+/**
+ * Clusters individual OCR lines into visually coherent text blocks (e.g. chat bubbles, paragraphs)
+ * by analyzing vertical gap and horizontal alignment.
+ */
+function clusterLinesIntoBlocks(rawLines: any[], threshold: number): OcrTextBlock[] {
+  if (!rawLines || rawLines.length === 0) return [];
+
+  const validLines = rawLines.filter(
+    (l) => (l.confidence || 0) >= threshold && l.text && l.text.trim().length > 0
+  );
+  if (validLines.length === 0) return [];
+
+  // Sort lines primarily by vertical position y0, secondarily by x0
+  validLines.sort((a, b) => {
+    const diffY = a.bbox.y0 - b.bbox.y0;
+    if (Math.abs(diffY) > 5) return diffY;
+    return a.bbox.x0 - b.bbox.x0;
+  });
+
+  const groups: (typeof validLines)[] = [];
+  let currentGroup = [validLines[0]];
+
+  for (let i = 1; i < validLines.length; i++) {
+    const curr = validLines[i];
+    const prev = currentGroup[currentGroup.length - 1];
+
+    const prevH = Math.max(8, prev.bbox.y1 - prev.bbox.y0);
+    const currH = Math.max(8, curr.bbox.y1 - curr.bbox.y0);
+    const avgH = (prevH + currH) / 2;
+
+    const gapY = curr.bbox.y0 - prev.bbox.y1;
+    const overlapX = Math.min(prev.bbox.x1, curr.bbox.x1) - Math.max(prev.bbox.x0, curr.bbox.x0);
+    const leftDiff = Math.abs(prev.bbox.x0 - curr.bbox.x0);
+    const rightDiff = Math.abs(prev.bbox.x1 - curr.bbox.x1);
+
+    // Belong to the same block if:
+    // 1. Vertical gap is within line spacing threshold (<= 1.35 * avg line height, or <= 16px)
+    // 2. Horizontally aligned (overlap > 0, or left/right margin within 35px)
+    const isVerticalClose = gapY <= Math.max(14, avgH * 1.35) && gapY >= -avgH * 0.6;
+    const isHorizontalAligned = overlapX > 0 || leftDiff < 35 || rightDiff < 35;
+
+    if (isVerticalClose && isHorizontalAligned) {
+      currentGroup.push(curr);
+    } else {
+      groups.push(currentGroup);
+      currentGroup = [curr];
+    }
+  }
+
+  if (currentGroup.length > 0) {
+    groups.push(currentGroup);
+  }
+
+  const blocks: OcrTextBlock[] = [];
+  let idCounter = 1;
+
+  for (const group of groups) {
+    const text = cleanOcrText(group.map((l) => l.text.trim()).join(' '));
+    // Filter out solitary noise / symbols
+    if (!text || (text.length <= 1 && !/[a-zA-Z0-9\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7a3]/.test(text))) {
+      continue;
+    }
+
+    const x0 = Math.min(...group.map((l) => l.bbox.x0));
+    const y0 = Math.min(...group.map((l) => l.bbox.y0));
+    const x1 = Math.max(...group.map((l) => l.bbox.x1));
+    const y1 = Math.max(...group.map((l) => l.bbox.y1));
+    const avgConf = group.reduce((sum, l) => sum + (l.confidence || 0), 0) / group.length;
+
+    blocks.push({
+      id: idCounter++,
+      bbox: { x0, y0, x1, y1 },
+      text,
+      confidence: avgConf,
+      lineCount: group.length,
+    });
+  }
+
+  return blocks;
+}
+
 async function recognizeWithWorker(
   langKey: string,
   imageBuffer: Buffer,
@@ -150,60 +231,31 @@ async function recognizeWithWorker(
   try {
     const worker = await getOrCreateWorker(langKey, onProgress);
     const result = await worker.recognize(imageBuffer);
-    const paragraphs = result?.data?.paragraphs || [];
     const lines = result?.data?.lines || [];
-
-    const blocks: OcrTextBlock[] = [];
-    let blockIdCounter = 1;
 
     // Filter noise threshold
     const maxLineConf = lines.length > 0 ? Math.max(...lines.map((l) => l.confidence || 0)) : 0;
-    const threshold = maxLineConf >= 65 ? 50 : 0;
+    const threshold = maxLineConf >= 65 ? 45 : 0;
 
-    // Extract blocks from paragraphs
-    if (paragraphs.length > 0) {
-      for (const p of paragraphs) {
-        const validLines = (p.lines || []).filter(
-          (l) => (l.confidence || 0) >= threshold && l.text && l.text.trim().length > 0
-        );
+    // Cluster lines into cohesive blocks
+    let blocks = clusterLinesIntoBlocks(lines, threshold);
 
-        if (validLines.length > 0) {
-          const x0 = Math.min(...validLines.map((l) => l.bbox.x0));
-          const y0 = Math.min(...validLines.map((l) => l.bbox.y0));
-          const x1 = Math.max(...validLines.map((l) => l.bbox.x1));
-          const y1 = Math.max(...validLines.map((l) => l.bbox.y1));
-          const text = cleanOcrText(validLines.map((l) => l.text.trim()).join(' '));
-          const avgConf =
-            validLines.reduce((sum, l) => sum + (l.confidence || 0), 0) / validLines.length;
-
-          if (text.length > 0) {
-            blocks.push({
-              id: blockIdCounter++,
-              bbox: { x0, y0, x1, y1 },
-              text,
-              confidence: avgConf,
-            });
-          }
-        }
-      }
-    }
-
-    // Fallback if paragraphs didn't produce blocks
+    // Fallback if clustering produced nothing
     if (blocks.length === 0 && lines.length > 0) {
       const validLines = lines.filter(
         (l) => (l.confidence || 0) >= threshold && l.text && l.text.trim().length > 0
       );
-      if (validLines.length > 0) {
-        for (const l of validLines) {
-          const text = cleanOcrText(l.text);
-          if (text) {
-            blocks.push({
-              id: blockIdCounter++,
-              bbox: l.bbox,
-              text,
-              confidence: l.confidence,
-            });
-          }
+      let fallbackId = 1;
+      for (const l of validLines) {
+        const text = cleanOcrText(l.text);
+        if (text) {
+          blocks.push({
+            id: fallbackId++,
+            bbox: l.bbox,
+            text,
+            confidence: l.confidence,
+            lineCount: 1,
+          });
         }
       }
     }
