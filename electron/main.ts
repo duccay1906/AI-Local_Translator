@@ -84,7 +84,7 @@ function ensureUserDataDir() {
 }
 
 const defaultSettings: AppSettings = {
-  lmStudioUrl: 'http://192.168.1.12:1234',
+  lmStudioUrl: 'http://192.168.1.6:1234',
   modelName: '',
   targetLanguage: 'Vietnamese',
   systemPrompt: 'You are a professional translator. Translate the given text into {targetLanguage}. Output ONLY the translated text without extra explanation.',

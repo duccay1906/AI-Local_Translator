@@ -108,7 +108,7 @@ Trong tab **General & Model → Global Hotkeys & Languages**:
 
 ### 4.2. Kết nối LM Studio (Local / Mạng LAN)
 - **Chạy trên cùng máy tính:** Nhập `http://localhost:1234`.
-- **Chạy qua máy chủ GPU trong mạng LAN:** Nhập địa chỉ IP của máy chủ GPU (Ví dụ: `http://192.168.1.150:1234`).
+- **Chạy qua máy chủ GPU trong mạng LAN:** Nhập địa chỉ IP của máy chủ GPU (Mặc định: `http://192.168.1.6:1234`).
 - Bấm nút **Test Connection** để kiểm tra kết nối và tự động tải danh sách các Model đang có trên máy chủ.
 
 ### 4.3. Chế độ AI Thinking / Reasoning Mode
@@ -133,7 +133,7 @@ Nếu cơ quan hoặc văn phòng của bạn có một máy tính trang bị ca
    - File sẽ tự động mở cổng **Firewall TCP 1234**.
    - Khởi động server lắng nghe toàn mạng LAN (`--bind 0.0.0.0 --port 1234 --cors`).
    - Nạp model vào VRAM với cấu hình đa luồng song song (`--parallel 8`).
-   - Hiển thị địa chỉ IP của máy chủ lên màn hình (Ví dụ: `http://192.168.1.150:1234`).
+   - Hiển thị địa chỉ IP của máy chủ lên màn hình (Ví dụ: `http://192.168.1.6:1234`).
 
 ### Bước 2: Thiết lập trên các máy trạm (Client)
 - Mọi người trong văn phòng chỉ cần mở file **`AI Local Translator 1.0.1.exe`**.

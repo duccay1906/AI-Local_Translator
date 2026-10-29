@@ -140,7 +140,7 @@ const HotkeyRecorder: React.FC<{ value: string; onChange: (shortcut: string) => 
 export const SettingsModal: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'general' | 'prompt' | 'updates' | 'history'>('general');
   const [settings, setSettings] = useState<AppSettings>({
-    lmStudioUrl: 'http://192.168.1.12:1234',
+    lmStudioUrl: 'http://192.168.1.6:1234',
     modelName: 'local-model',
     targetLanguage: 'Vietnamese',
     systemPrompt: 'You are a professional translator. Translate the given text into {targetLanguage}. Output ONLY the translated text without extra explanation.',
