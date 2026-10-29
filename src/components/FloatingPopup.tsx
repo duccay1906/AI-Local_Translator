@@ -13,7 +13,8 @@ import {
   ChevronDown, 
   ChevronUp,
   AlertTriangle,
-  Eye
+  Eye,
+  ScanText
 } from 'lucide-react';
 
 const SUPPORTED_LANGUAGES = [
@@ -38,6 +39,8 @@ export const FloatingPopup: React.FC = () => {
   const [showSource, setShowSource] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [ocrStatus, setOcrStatus] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const [popupOpacity, setPopupOpacity] = useState<number>(0.92);
   const [showOpacitySlider, setShowOpacitySlider] = useState<boolean>(false);
@@ -62,9 +65,31 @@ export const FloatingPopup: React.FC = () => {
       }
     });
 
-    // Listen for translation trigger from main process (hotkey or selection)
+    // Listen for OCR state updates (when user snips an image region)
+    const cleanupOcrState = api.onOcrStateChange((state) => {
+      if (state.status === 'processing') {
+        setOcrStatus(state.message || 'Extracting text from image (OCR)...');
+        setErrorMessage(null);
+        setSourceText('');
+        setTranslatedText('');
+        setIsLoading(false);
+        if (state.imagePreview) {
+          setImagePreview(state.imagePreview);
+        }
+      } else if (state.status === 'done') {
+        setOcrStatus(null);
+      } else if (state.status === 'error') {
+        setOcrStatus(null);
+        setIsLoading(false);
+        setErrorMessage(state.message || 'Could not extract text from the selected image.');
+      }
+    });
+
+    // Listen for translation trigger from main process (hotkey, selection, or OCR output)
     const cleanupTrigger = api.onTriggerTranslate((data) => {
+      setOcrStatus(null);
       setSourceText(data.text);
+      setImagePreview(data.imagePreview || null);
       setTranslatedText('');
       setErrorMessage(null);
       setIsLoading(true);
@@ -90,6 +115,7 @@ export const FloatingPopup: React.FC = () => {
     });
 
     return () => {
+      cleanupOcrState();
       cleanupTrigger();
       cleanupChunk();
       cleanupComplete();
@@ -268,6 +294,16 @@ export const FloatingPopup: React.FC = () => {
             <Eye size={13} />
           </button>
 
+          {/* Screen OCR Snip Button */}
+          <button 
+            className="btn-icon"
+            onClick={() => api.startOcrCapture()}
+            title={`Screen OCR Translate (${settings?.ocrHotkey || 'F9'})`}
+            style={{ width: '26px', height: '26px' }}
+          >
+            <ScanText size={13} />
+          </button>
+
           {/* Pin Button */}
           <button 
             className={`btn-icon ${isPinned ? 'active' : ''}`}
@@ -302,8 +338,8 @@ export const FloatingPopup: React.FC = () => {
 
       {/* Main Translation Content */}
       <div style={{ flex: 1, padding: '12px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {/* Source Text Preview (Collapsible) */}
-        {sourceText && (
+        {/* Source Text / Captured Image Preview (Collapsible) */}
+        {(sourceText || imagePreview) && (
           <div 
             style={{ 
               background: isSolid ? '#0f172a' : 'rgba(255, 255, 255, 0.03)', 
@@ -318,28 +354,37 @@ export const FloatingPopup: React.FC = () => {
               onClick={() => setShowSource(!showSource)} 
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
             >
-              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                Source Text ({sourceText.length} chars)
+              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {imagePreview && <ScanText size={12} color="var(--accent-primary)" />}
+                {sourceText ? `Source Text (${sourceText.length} chars)` : 'Captured Image (OCR...)'}
               </span>
               {showSource ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </div>
             
             {showSource && (
-              <div 
-                className="selectable"
-                style={{ 
-                  marginTop: '6px', 
-                  maxHeight: '60px', 
-                  overflowY: 'auto', 
-                  whiteSpace: 'pre-wrap', 
-                  color: 'var(--text-main)',
-                  fontSize: '12px',
-                  lineHeight: '1.4',
-                  userSelect: 'text',
-                  WebkitUserSelect: 'text'
-                }}
-              >
-                {sourceText}
+              <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {imagePreview && (
+                  <div style={{ maxHeight: '64px', overflow: 'hidden', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.08)', background: '#05080f', display: 'flex', justifyContent: 'center' }}>
+                    <img src={imagePreview} alt="Snipped OCR region" style={{ maxHeight: '64px', maxWidth: '100%', objectFit: 'contain' }} />
+                  </div>
+                )}
+                {sourceText && (
+                  <div 
+                    className="selectable"
+                    style={{ 
+                      maxHeight: '60px', 
+                      overflowY: 'auto', 
+                      whiteSpace: 'pre-wrap', 
+                      color: 'var(--text-main)',
+                      fontSize: '12px',
+                      lineHeight: '1.4',
+                      userSelect: 'text',
+                      WebkitUserSelect: 'text'
+                    }}
+                  >
+                    {sourceText}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -363,20 +408,29 @@ export const FloatingPopup: React.FC = () => {
             >
               <AlertTriangle size={18} color="#ef4444" style={{ flexShrink: 0, marginTop: '2px' }} />
               <div>
-                <strong style={{ display: 'block', marginBottom: '4px' }}>LM Studio Connection Error</strong>
+                <strong style={{ display: 'block', marginBottom: '4px' }}>Translation / OCR Notice</strong>
                 <p style={{ margin: 0, lineHeight: '1.4' }}>{errorMessage}</p>
-                <button 
-                  className="btn-primary" 
-                  onClick={() => api.openSettingsWindow()}
-                  style={{ marginTop: '10px', padding: '4px 10px', fontSize: '11px' }}
-                >
-                  <Settings size={12} /> Check Connection Settings
-                </button>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                  <button 
+                    className="btn-primary" 
+                    onClick={() => api.startOcrCapture()}
+                    style={{ padding: '4px 10px', fontSize: '11px' }}
+                  >
+                    <ScanText size={12} /> Resnip Image
+                  </button>
+                  <button 
+                    className="btn-icon" 
+                    onClick={() => api.openSettingsWindow()}
+                    style={{ width: 'auto', padding: '4px 10px', fontSize: '11px' }}
+                  >
+                    <Settings size={12} /> Settings
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
             <div 
-              className={`selectable ${isLoading ? 'typing-indicator' : ''}`}
+              className={`selectable ${(isLoading || ocrStatus) ? 'typing-indicator' : ''}`}
               style={{ 
                 flex: 1, 
                 minHeight: '100px', 
@@ -393,13 +447,18 @@ export const FloatingPopup: React.FC = () => {
                 cursor: 'text'
               }}
             >
-              {translatedText ? (
+              {ocrStatus ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-primary)', fontStyle: 'italic' }}>
+                  <RotateCw size={14} className="spin" />
+                  <span>{ocrStatus}</span>
+                </div>
+              ) : translatedText ? (
                 translatedText
               ) : isLoading ? (
                 <span style={{ color: 'var(--text-dim)', fontStyle: 'italic' }}>Translating with LM Studio...</span>
               ) : (
                 <span style={{ color: 'var(--text-dim)' }}>
-                  Press <kbd style={{ background: '#1e293b', padding: '2px 6px', borderRadius: '4px', border: '1px solid #334155' }}>Alt+T</kbd> after selecting text anywhere on your PC to translate instantly.
+                  Press <kbd style={{ background: '#1e293b', padding: '2px 6px', borderRadius: '4px', border: '1px solid #334155' }}>{settings?.hotkey || 'F8'}</kbd> to translate selected text, or <kbd style={{ background: '#1e293b', padding: '2px 6px', borderRadius: '4px', border: '1px solid #334155' }}>{settings?.ocrHotkey || 'F9'}</kbd> to snip & translate from an image.
                 </span>
               )}
             </div>

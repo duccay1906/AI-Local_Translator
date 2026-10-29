@@ -1,14 +1,18 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, screen, clipboard, Tray, Menu, nativeImage } from 'electron';
+import { app, BrowserWindow, globalShortcut, ipcMain, screen, clipboard, Tray, Menu, nativeImage, desktopCapturer } from 'electron';
 import path from 'path';
 import fs from 'fs';
+import { exec } from 'child_process';
 import { streamTranslation, fetchAvailableModels } from './lmstudio';
-import { AppSettings, TranslationHistoryItem } from '../src/types';
+import { extractTextFromImage, terminateOcrWorker } from './ocr';
+import { AppSettings, TranslationHistoryItem, SnipSelectionResult } from '../src/types';
 
 let popupWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
 let splashWindow: BrowserWindow | null = null;
+let snipWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let currentAbortController: { abort: () => void } | null = null;
+let lastCapturedScreen: Electron.NativeImage | null = null;
 
 const TRAY_ICON_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAIhSURBVHgB7VdNSgMxEE5CQRBEFAURF0IXLlzozkV6A0HQrVt3XkBw57gRF64giLhzEUEEwZ3ozGfSznTa3el0MplJvvC9N/OStvPhfV+j0aitpuksmqYLWJaV9i1d/2/v/RFFUSNJkiBv3uLzeDxe961f7oF4f3ccZ9cwt2mapq0bHMe5H9f2913A8zzj1fO8T3XnOI42DEPtdzW1Wq1aqvPj+n0+n7e8yN7vd9s/Dk3TNHWapla92u/3q+12e1o0mUyo67pWr9er1WpllUql3+/1eu3b7bZbLpcuTdNM4zj2eL4v2vUie55nfV9b12q1qlQq2Xg8tmazuS63222r1Wp6vV623W51s9nYu9f3/a+tVutv6z8N/C+aTqdH2/ZyuVRv1+t1bTQalTqdTqVer/9N90d/v98fyul00qXxeFwq/qJ6vV6rUqm0qFar/crL5VIJISLqdruVGo1GpWq1+qu7TqdTy3U9r1Yr+z/0arWyaDTq1Wq1tFqt/uo8l0slhGihNpvNWvb9ft+Gw+HS5w73+32H8/lcs+Vyaf1+n3ndzGazaavVqq3X66W73e6w+w3/6/5v96vxeGy3281m8/ldj8ej9fs9m80d8z8fVqvV0s1mwzybz2d5f/Rer2dr3jFf9ffo3/t1/6u+t9tNlcvl8p89P/F8Pi+t12ur67odf1mSJD6K12p+/wT8e8Q/y89X4y911EwAAAAASUVORK5CYII=';
 
@@ -84,6 +88,10 @@ const defaultSettings: AppSettings = {
   systemPrompt: 'You are a professional translator. Translate the given text into {targetLanguage}. Output ONLY the translated text without extra explanation.',
   triggerMode: 'hotkey',
   hotkey: 'F8',
+  ocrHotkey: 'F9',
+  ocrLanguage: 'auto',
+  reasoningEffort: 'none',
+  autoStartWithWindows: true,
   autoCopySelection: true,
   theme: 'dark',
   opacity: 0.92,
@@ -139,6 +147,29 @@ function saveHistoryToDisk(history: TranslationHistoryItem[]): boolean {
 
 let activeSettings = loadSettings();
 
+function applyAutoStartSetting(enabled: boolean) {
+  if (!app.isPackaged) return;
+
+  const targetExe = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
+  try {
+    app.setLoginItemSettings({
+      openAtLogin: enabled,
+      path: targetExe,
+      args: ['--hidden'],
+    });
+
+    const regKey = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run';
+    const regName = 'AILocalTranslator';
+    if (enabled) {
+      exec(`reg add "${regKey}" /v "${regName}" /t REG_SZ /d "\\"${targetExe}\\" --hidden" /f`);
+    } else {
+      exec(`reg delete "${regKey}" /v "${regName}" /f`);
+    }
+  } catch (err) {
+    console.error('Failed to configure Windows auto-start:', err);
+  }
+}
+
 function createPopupWindow() {
   popupWindow = new BrowserWindow({
     width: 440,
@@ -164,7 +195,7 @@ function createPopupWindow() {
     popupWindow.loadFile(path.join(__dirname, '../dist/index.html'), { hash: 'popup' });
   }
 
-  popupWindow.webContents.on('before-input-event', (event, input) => {
+  popupWindow.webContents.on('before-input-event', (_, input) => {
     const key = (input.key || '').toLowerCase();
     const code = (input.code || '').toLowerCase();
     if (key === 'escape' || key === 'esc' || code === 'escape') {
@@ -179,9 +210,70 @@ function createPopupWindow() {
   });
   popupWindow.on('hide', () => {
     try {
-      globalShortcut.unregister('Escape');
+      if (!snipWindow || !snipWindow.isVisible()) {
+        globalShortcut.unregister('Escape');
+      }
     } catch (e) {}
   });
+}
+
+function createSnipWindow() {
+  snipWindow = new BrowserWindow({
+    width: 800,
+    height: 600,
+    show: false,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    type: 'toolbar',
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    movable: false,
+    fullscreenable: true,
+    hasShadow: false,
+    icon: appIcon,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  // Exclude snip overlay from desktopCapturer so it never captures its own dark tint
+  snipWindow.setContentProtection(true);
+
+  const isDev = !app.isPackaged && process.env.VITE_DEV_SERVER_URL;
+  if (isDev) {
+    snipWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}#snip`);
+  } else {
+    snipWindow.loadFile(path.join(__dirname, '../dist/index.html'), { hash: 'snip' });
+  }
+
+  snipWindow.webContents.on('before-input-event', (_, input) => {
+    const key = (input.key || '').toLowerCase();
+    const code = (input.code || '').toLowerCase();
+    if (key === 'escape' || key === 'esc' || code === 'escape') {
+      hideSnipWindow();
+    }
+  });
+
+  snipWindow.on('closed', () => {
+    snipWindow = null;
+  });
+}
+
+function hideSnipWindow() {
+  if (snipWindow && !snipWindow.isDestroyed()) {
+    snipWindow.setOpacity(0);
+    snipWindow.webContents.send('snip-reset');
+    snipWindow.hide();
+    try {
+      if (!popupWindow || !popupWindow.isVisible()) {
+        globalShortcut.unregister('Escape');
+      }
+    } catch (e) {}
+  }
 }
 
 function createSettingsWindow() {
@@ -253,8 +345,12 @@ function updateTrayMenu() {
       click: () => createSettingsWindow(),
     },
     {
-      label: '📌 Show Translation Popup',
+      label: '📌 Translate Selected Text',
       click: () => triggerTranslationFlow(),
+    },
+    {
+      label: '📷 Screen OCR Translate (Dịch vùng ảnh)',
+      click: () => triggerOcrSnipFlow(),
     },
     { type: 'separator' },
     {
@@ -262,8 +358,24 @@ function updateTrayMenu() {
       enabled: false,
     },
     {
-      label: `⌨️ Shortcut: ${activeSettings.hotkey}`,
+      label: `⌨️ Text Shortcut: ${activeSettings.hotkey || 'F8'}`,
       enabled: false,
+    },
+    {
+      label: `📷 OCR Shortcut: ${activeSettings.ocrHotkey || 'F9'}`,
+      enabled: false,
+    },
+    { type: 'separator' },
+    {
+      label: '🚀 Start with Windows (Khởi động cùng Win)',
+      type: 'checkbox',
+      checked: activeSettings.autoStartWithWindows ?? true,
+      click: (menuItem) => {
+        activeSettings.autoStartWithWindows = menuItem.checked;
+        saveSettingsToDisk(activeSettings);
+        applyAutoStartSetting(menuItem.checked);
+        updateTrayMenu();
+      },
     },
     { type: 'separator' },
     {
@@ -276,8 +388,6 @@ function updateTrayMenu() {
 
   tray.setContextMenu(contextMenu);
 }
-
-import { exec } from 'child_process';
 
 const vbsPath = path.join(app.getPath('userData'), 'send_copy.vbs');
 
@@ -293,9 +403,6 @@ function initVbsHelper() {
 
 async function captureSelectedText(): Promise<string> {
   return new Promise((resolve) => {
-    const prevText = clipboard.readText();
-    
-    // Execute VBScript to trigger Ctrl+C keypress in current active window after modifier keyup
     exec(`cscript //nologo "${vbsPath}"`, () => {
       setTimeout(() => {
         const capturedText = clipboard.readText();
@@ -309,8 +416,28 @@ function hidePopupWindow() {
   if (popupWindow && !popupWindow.isDestroyed()) {
     popupWindow.hide();
     try {
-      globalShortcut.unregister('Escape');
+      if (!snipWindow || !snipWindow.isVisible()) {
+        globalShortcut.unregister('Escape');
+      }
     } catch (e) {}
+  }
+}
+
+function registerEscapeShortcut() {
+  try {
+    globalShortcut.unregister('Escape');
+  } catch (e) {}
+
+  try {
+    globalShortcut.register('Escape', () => {
+      if (snipWindow && !snipWindow.isDestroyed() && snipWindow.isVisible()) {
+        hideSnipWindow();
+        return;
+      }
+      hidePopupWindow();
+    });
+  } catch (e) {
+    console.warn('Failed to register global Escape:', e);
   }
 }
 
@@ -331,18 +458,31 @@ function showPopupWindowWithFocus() {
     }
   }, 50);
 
-  // Register global Escape shortcut while popup is visible so Esc ALWAYS closes popup instantly from anywhere in Windows
-  try {
-    globalShortcut.unregister('Escape');
-  } catch (e) {}
+  registerEscapeShortcut();
+}
 
-  try {
-    globalShortcut.register('Escape', () => {
-      hidePopupWindow();
-    });
-  } catch (e) {
-    console.warn('Failed to register global Escape:', e);
+function positionPopupAtPoint(pointX: number, pointY: number) {
+  const display = screen.getDisplayNearestPoint({ x: pointX, y: pointY });
+  let targetX = pointX + 15;
+  let targetY = pointY + 15;
+
+  const windowWidth = 440;
+  const windowHeight = 320;
+
+  if (targetX + windowWidth > display.bounds.x + display.bounds.width) {
+    targetX = pointX - windowWidth - 10;
   }
+  if (targetY + windowHeight > display.bounds.y + display.bounds.height) {
+    targetY = pointY - windowHeight - 10;
+  }
+
+  targetX = Math.max(display.bounds.x + 8, Math.min(targetX, display.bounds.x + display.bounds.width - windowWidth - 8));
+  targetY = Math.max(display.bounds.y + 8, Math.min(targetY, display.bounds.y + display.bounds.height - windowHeight - 8));
+
+  if (popupWindow && !popupWindow.isDestroyed()) {
+    popupWindow.setPosition(targetX, targetY);
+  }
+  return { targetX, targetY };
 }
 
 async function triggerTranslationFlow(overrideText?: string) {
@@ -358,25 +498,9 @@ async function triggerTranslationFlow(overrideText?: string) {
   }
 
   const cursor = screen.getCursorScreenPoint();
-  const display = screen.getDisplayNearestPoint(cursor);
-
-  // Position popup window near cursor
-  let targetX = cursor.x + 15;
-  let targetY = cursor.y + 15;
-
-  const windowWidth = 440;
-  const windowHeight = 320;
-
-  // Boundary check
-  if (targetX + windowWidth > display.bounds.x + display.bounds.width) {
-    targetX = cursor.x - windowWidth - 10;
-  }
-  if (targetY + windowHeight > display.bounds.y + display.bounds.height) {
-    targetY = cursor.y - windowHeight - 10;
-  }
+  const { targetX, targetY } = positionPopupAtPoint(cursor.x, cursor.y);
 
   if (popupWindow) {
-    popupWindow.setPosition(Math.max(display.bounds.x, targetX), Math.max(display.bounds.y, targetY));
     showPopupWindowWithFocus();
 
     popupWindow.webContents.send('trigger-translate', {
@@ -387,15 +511,74 @@ async function triggerTranslationFlow(overrideText?: string) {
   }
 }
 
+async function triggerOcrSnipFlow() {
+  try {
+    if (!snipWindow || snipWindow.isDestroyed()) {
+      createSnipWindow();
+    }
+
+    // Hide unpinned popup temporarily so it doesn't cover the area user wants to capture
+    if (popupWindow && !popupWindow.isDestroyed() && popupWindow.isVisible() && !(popupWindow as any).isPinned) {
+      popupWindow.hide();
+    }
+
+    const cursor = screen.getCursorScreenPoint();
+    const display = screen.getDisplayNearestPoint(cursor);
+    const scaleFactor = display.scaleFactor || 1;
+    const captureWidth = Math.round(display.bounds.width * scaleFactor);
+    const captureHeight = Math.round(display.bounds.height * scaleFactor);
+
+    // Prepare transparent overlay window with opacity=0 until Renderer commits a clean frame
+    if (snipWindow && !snipWindow.isDestroyed()) {
+      snipWindow.setOpacity(0);
+      snipWindow.setBounds({
+        x: display.bounds.x,
+        y: display.bounds.y,
+        width: display.bounds.width,
+        height: display.bounds.height,
+      });
+      snipWindow.setAlwaysOnTop(true, 'screen-saver');
+      snipWindow.showInactive();
+
+      snipWindow.webContents.send('snip-screen-capture', {
+        scaleFactor,
+        ocrLanguage: (activeSettings.ocrLanguage && activeSettings.ocrLanguage !== 'eng+jpn+kor+chi_sim') ? activeSettings.ocrLanguage : 'auto',
+        displayBounds: display.bounds,
+      });
+
+      registerEscapeShortcut();
+    }
+
+    // Capture screen in native C++ memory while user moves mouse (snipWindow is excluded via setContentProtection)
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: {
+        width: captureWidth,
+        height: captureHeight,
+      },
+    });
+
+    if (sources && sources.length > 0) {
+      const matchedSource =
+        sources.find((s) => String(s.display_id) === String(display.id)) || sources[0];
+      lastCapturedScreen = matchedSource.thumbnail;
+    }
+  } catch (err) {
+    console.error('Failed to start OCR screen snip flow:', err);
+  }
+}
+
 function registerHotkeys() {
   globalShortcut.unregisterAll();
+
+  // 1. Register Text Selection Translation Hotkey
   const targetHotkey = activeSettings.hotkey || 'F8';
   try {
     const ok = globalShortcut.register(targetHotkey, () => {
       triggerTranslationFlow();
     });
     if (ok) {
-      console.log(`Global hotkey ${targetHotkey} registered successfully.`);
+      console.log(`Global text hotkey ${targetHotkey} registered successfully.`);
     } else {
       console.warn(`${targetHotkey} hotkey failed to register, falling back to F8...`);
       if (targetHotkey !== 'F8') {
@@ -403,18 +586,46 @@ function registerHotkeys() {
       }
     }
   } catch (err) {
-    console.error('Hotkey registration error:', err);
+    console.error('Text hotkey registration error:', err);
+  }
+
+  // 2. Register Image OCR Snip Hotkey
+  const targetOcrHotkey = activeSettings.ocrHotkey || 'F9';
+  if (targetOcrHotkey && targetOcrHotkey !== targetHotkey) {
+    try {
+      const okOcr = globalShortcut.register(targetOcrHotkey, () => {
+        triggerOcrSnipFlow();
+      });
+      if (okOcr) {
+        console.log(`Global OCR hotkey ${targetOcrHotkey} registered successfully.`);
+      } else {
+        console.warn(`${targetOcrHotkey} OCR hotkey failed to register, falling back to F9...`);
+        if (targetOcrHotkey !== 'F9' && targetHotkey !== 'F9') {
+          globalShortcut.register('F9', () => triggerOcrSnipFlow());
+        }
+      }
+    } catch (err) {
+      console.error('OCR hotkey registration error:', err);
+    }
   }
 }
 
 // App lifecycle
 app.whenReady().then(() => {
-  createSplashWindow();
+  const isHiddenBoot = process.argv.includes('--hidden');
+
+  if (!isHiddenBoot) {
+    createSplashWindow();
+  }
   initVbsHelper();
   createPopupWindow();
-  createSettingsWindow();
+  createSnipWindow();
+  if (!isHiddenBoot) {
+    createSettingsWindow();
+  }
   createTray();
   registerHotkeys();
+  applyAutoStartSetting(activeSettings.autoStartWithWindows ?? true);
 
   // Auto-resolve active model from LM Studio server on startup
   fetchAvailableModels(activeSettings.lmStudioUrl)
@@ -437,6 +648,7 @@ app.whenReady().then(() => {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+  terminateOcrWorker();
 });
 
 // IPC Handlers
@@ -445,6 +657,7 @@ ipcMain.handle('get-settings', () => activeSettings);
 ipcMain.handle('save-settings', (_, newSettings: AppSettings) => {
   activeSettings = { ...activeSettings, ...newSettings };
   saveSettingsToDisk(activeSettings);
+  applyAutoStartSetting(activeSettings.autoStartWithWindows ?? true);
   registerHotkeys();
   updateTrayMenu();
   return activeSettings;
@@ -477,7 +690,7 @@ ipcMain.handle('clear-history', () => {
 });
 
 ipcMain.on('close-popup', () => {
-  if (popupWindow) popupWindow.hide();
+  hidePopupWindow();
 });
 
 ipcMain.on('set-pinned', (_, pinned: boolean) => {
@@ -497,6 +710,123 @@ ipcMain.on('open-settings-window', () => {
   createSettingsWindow();
 });
 
+ipcMain.on('start-ocr-capture', () => {
+  triggerOcrSnipFlow();
+});
+
+ipcMain.on('snip-ready-to-show', () => {
+  if (snipWindow && !snipWindow.isDestroyed()) {
+    snipWindow.setOpacity(1);
+    snipWindow.focus();
+  }
+});
+
+ipcMain.on('cancel-snip-selection', () => {
+  hideSnipWindow();
+});
+
+ipcMain.on('complete-snip-selection', async (_, payload: SnipSelectionResult) => {
+  hideSnipWindow();
+
+  const { rect, viewportWidth, viewportHeight, ocrLanguage, screenX, screenY } = payload;
+
+  if (!lastCapturedScreen) {
+    return;
+  }
+
+  // Native C++ crop & upscale on Electron.NativeImage (< 1ms)
+  const imgSize = lastCapturedScreen.getSize();
+  const scaleX = imgSize.width / Math.max(1, viewportWidth);
+  const scaleY = imgSize.height / Math.max(1, viewportHeight);
+
+  const cropX = Math.max(0, Math.round(rect.x * scaleX));
+  const cropY = Math.max(0, Math.round(rect.y * scaleY));
+  const cropW = Math.min(imgSize.width - cropX, Math.round(rect.width * scaleX));
+  const cropH = Math.min(imgSize.height - cropY, Math.round(rect.height * scaleY));
+
+  if (cropW <= 2 || cropH <= 2) {
+    return;
+  }
+
+  let croppedImg = lastCapturedScreen.crop({
+    x: cropX,
+    y: cropY,
+    width: cropW,
+    height: cropH,
+  });
+
+  if (cropH < 120) {
+    croppedImg = croppedImg.resize({
+      width: cropW * 2,
+      height: cropH * 2,
+      quality: 'best',
+    });
+  }
+
+  const croppedImageDataUrl = croppedImg.toDataURL();
+
+  // Persist quick-selected OCR language if changed during snipping
+  if (ocrLanguage && ocrLanguage !== activeSettings.ocrLanguage) {
+    activeSettings.ocrLanguage = ocrLanguage;
+    saveSettingsToDisk(activeSettings);
+  }
+
+  const { targetX, targetY } = positionPopupAtPoint(screenX, screenY);
+
+  if (!popupWindow || popupWindow.isDestroyed()) {
+    createPopupWindow();
+  }
+
+  showPopupWindowWithFocus();
+
+  popupWindow?.webContents.send('ocr-state-change', {
+    status: 'processing',
+    message: 'Extracting text from image (OCR)...',
+    imagePreview: croppedImageDataUrl,
+  });
+
+  try {
+    const extractedText = await extractTextFromImage(
+      croppedImageDataUrl,
+      ocrLanguage || activeSettings.ocrLanguage || 'eng+jpn+kor+chi_sim',
+      (progressMsg) => {
+        popupWindow?.webContents.send('ocr-state-change', {
+          status: 'processing',
+          message: progressMsg,
+          imagePreview: croppedImageDataUrl,
+        });
+      }
+    );
+
+    if (!extractedText || !extractedText.trim()) {
+      popupWindow?.webContents.send('ocr-state-change', {
+        status: 'error',
+        message: 'No readable text found in the selected area. Try selecting a clearer region or switching the OCR language.',
+        imagePreview: croppedImageDataUrl,
+      });
+      return;
+    }
+
+    popupWindow?.webContents.send('ocr-state-change', {
+      status: 'done',
+      imagePreview: croppedImageDataUrl,
+    });
+
+    popupWindow?.webContents.send('trigger-translate', {
+      text: extractedText,
+      x: targetX,
+      y: targetY,
+      imagePreview: croppedImageDataUrl,
+    });
+  } catch (err: any) {
+    popupWindow?.webContents.send('ocr-state-change', {
+      status: 'error',
+      message: err.message || 'Failed to recognize text from image.',
+      imagePreview: croppedImageDataUrl,
+    });
+  }
+});
+
 ipcMain.on('start-translation', async (event, { text, targetLang }: { text: string; targetLang?: string }) => {
   if (currentAbortController) {
     currentAbortController.abort();
@@ -512,6 +842,7 @@ ipcMain.on('start-translation', async (event, { text, targetLang }: { text: stri
       text,
       targetLanguage: lang,
       systemPromptTemplate: activeSettings.systemPrompt,
+      reasoningEffort: activeSettings.reasoningEffort || 'none',
       onChunk: (chunk) => {
         event.sender.send('translate-chunk', chunk);
       },

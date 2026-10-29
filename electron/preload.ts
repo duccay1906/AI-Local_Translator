@@ -21,10 +21,39 @@ const electronAPI = {
   },
 
   // Event triggered by Global Hotkey or Mouse selection
-  onTriggerTranslate: (callback: (data: { text: string; x: number; y: number }) => void) => {
-    const listener = (_: any, data: { text: string; x: number; y: number }) => callback(data);
+  onTriggerTranslate: (callback: (data: { text: string; x: number; y: number; imagePreview?: string }) => void) => {
+    const listener = (_: any, data: { text: string; x: number; y: number; imagePreview?: string }) => callback(data);
     ipcRenderer.on('trigger-translate', listener);
     return () => ipcRenderer.removeListener('trigger-translate', listener);
+  },
+
+  // OCR Status & Snipping Overlay IPC
+  onOcrStateChange: (callback: (data: { status: 'processing' | 'done' | 'error'; message?: string; imagePreview?: string }) => void) => {
+    const listener = (_: any, data: { status: 'processing' | 'done' | 'error'; message?: string; imagePreview?: string }) => callback(data);
+    ipcRenderer.on('ocr-state-change', listener);
+    return () => ipcRenderer.removeListener('ocr-state-change', listener);
+  },
+  onSnipScreenCapture: (callback: (data: { scaleFactor: number; ocrLanguage: string; displayBounds: { x: number; y: number; width: number; height: number } }) => void) => {
+    const listener = (_: any, data: any) => callback(data);
+    ipcRenderer.on('snip-screen-capture', listener);
+    return () => ipcRenderer.removeListener('snip-screen-capture', listener);
+  },
+  onSnipReset: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on('snip-reset', listener);
+    return () => ipcRenderer.removeListener('snip-reset', listener);
+  },
+  notifySnipReady: () => {
+    ipcRenderer.send('snip-ready-to-show');
+  },
+  completeSnipSelection: (payload: { rect: { x: number; y: number; width: number; height: number }; viewportWidth: number; viewportHeight: number; ocrLanguage: string; screenX: number; screenY: number }) => {
+    ipcRenderer.send('complete-snip-selection', payload);
+  },
+  cancelSnipSelection: () => {
+    ipcRenderer.send('cancel-snip-selection');
+  },
+  startOcrCapture: () => {
+    ipcRenderer.send('start-ocr-capture');
   },
 
   // Settings management

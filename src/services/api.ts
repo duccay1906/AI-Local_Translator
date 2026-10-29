@@ -1,4 +1,4 @@
-import { AppSettings, TranslationHistoryItem } from '../types';
+import { AppSettings, TranslationHistoryItem, SnipCapturePayload, SnipSelectionResult, OcrStatePayload } from '../types';
 
 declare global {
   interface Window {
@@ -20,6 +20,8 @@ export const api = {
       systemPrompt: 'You are a professional translator. Translate the given text into {targetLanguage}.',
       triggerMode: 'hotkey',
       hotkey: 'F8',
+      ocrHotkey: 'F9',
+      ocrLanguage: 'eng+jpn+kor+chi_sim',
       autoCopySelection: true,
       theme: 'dark',
     };
@@ -72,11 +74,56 @@ export const api = {
     return () => {};
   },
 
-  onTriggerTranslate: (callback: (data: { text: string; x: number; y: number }) => void) => {
+  onTriggerTranslate: (callback: (data: { text: string; x: number; y: number; imagePreview?: string }) => void) => {
     if (window.electronAPI) {
       return window.electronAPI.onTriggerTranslate(callback);
     }
     return () => {};
+  },
+
+  onOcrStateChange: (callback: (data: OcrStatePayload) => void) => {
+    if (window.electronAPI) {
+      return window.electronAPI.onOcrStateChange(callback);
+    }
+    return () => {};
+  },
+
+  onSnipScreenCapture: (callback: (data: SnipCapturePayload) => void) => {
+    if (window.electronAPI) {
+      return window.electronAPI.onSnipScreenCapture(callback);
+    }
+    return () => {};
+  },
+
+  onSnipReset: (callback: () => void) => {
+    if (window.electronAPI) {
+      return window.electronAPI.onSnipReset(callback);
+    }
+    return () => {};
+  },
+
+  notifySnipReady: () => {
+    if (window.electronAPI) {
+      window.electronAPI.notifySnipReady();
+    }
+  },
+
+  completeSnipSelection: (payload: SnipSelectionResult) => {
+    if (window.electronAPI) {
+      window.electronAPI.completeSnipSelection(payload);
+    }
+  },
+
+  cancelSnipSelection: () => {
+    if (window.electronAPI) {
+      window.electronAPI.cancelSnipSelection();
+    }
+  },
+
+  startOcrCapture: () => {
+    if (window.electronAPI) {
+      window.electronAPI.startOcrCapture();
+    }
   },
 
   closePopup: () => {

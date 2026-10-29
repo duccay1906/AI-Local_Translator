@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { AppSettings, TranslationHistoryItem } from '../types';
+import { AppSettings, TranslationHistoryItem, ReasoningEffort } from '../types';
 import { 
   Server, 
   Cpu, 
@@ -15,8 +15,10 @@ import {
   Trash2,
   Copy,
   Check,
-  Eye
+  Eye,
+  ScanText
 } from 'lucide-react';
+import { OCR_LANGUAGE_OPTIONS } from './SnipOverlay';
 
 const HotkeyRecorder: React.FC<{ value: string; onChange: (shortcut: string) => void }> = ({ value, onChange }) => {
   const [isRecording, setIsRecording] = useState(false);
@@ -142,6 +144,10 @@ export const SettingsModal: React.FC = () => {
     systemPrompt: 'You are a professional translator. Translate the given text into {targetLanguage}. Output ONLY the translated text without extra explanation.',
     triggerMode: 'hotkey',
     hotkey: 'F8',
+    ocrHotkey: 'F9',
+    ocrLanguage: 'auto',
+    reasoningEffort: 'none',
+    autoStartWithWindows: true,
     autoCopySelection: true,
     theme: 'dark',
   });
@@ -327,6 +333,7 @@ export const SettingsModal: React.FC = () => {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
+                      marginBottom: '12px',
                       background: testResult.success ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
                       color: testResult.success ? '#34d399' : '#fca5a5',
                       border: `1px solid ${testResult.success ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
@@ -336,25 +343,41 @@ export const SettingsModal: React.FC = () => {
                     {testResult.message}
                   </div>
                 )}
+
+                <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--glass-border)' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                    <Cpu size={14} color="var(--accent-primary)" /> AI Thinking / Reasoning Mode (Gemma 4 / DeepSeek / Qwen):
+                  </label>
+                  <select
+                    className="form-select"
+                    value={settings.reasoningEffort || 'none'}
+                    onChange={(e) => setSettings({ ...settings, reasoningEffort: e.target.value as ReasoningEffort })}
+                  >
+                    <option value="none">None — Instant Translation (~0.3s, No Thinking Delay) [Recommended]</option>
+                    <option value="low">Low — Light Reasoning</option>
+                    <option value="medium">Medium — Balanced Reasoning</option>
+                    <option value="high">High — Deep Thinking (Slower, 10–15s)</option>
+                  </select>
+                </div>
               </div>
 
               {/* Hotkey & Preferences */}
               <div className="glass-panel" style={{ padding: '16px' }}>
                 <h3 style={{ fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                  <Keyboard size={16} color="#ec4899" /> Global Hotkey & Language
+                  <Keyboard size={16} color="#ec4899" /> Global Hotkeys & Languages
                 </h3>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <div>
                     <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
-                      Global Hotkey (Customizable):
+                      Text Translate Hotkey (Selection):
                     </label>
                     <HotkeyRecorder 
                       value={settings.hotkey || 'F8'} 
                       onChange={(newShortcut) => setSettings({ ...settings, hotkey: newShortcut })} 
                     />
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Click box to change hotkey</span>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Copy & translate selected text</span>
                       {(settings.hotkey && settings.hotkey !== 'F8') && (
                         <button
                           type="button"
@@ -376,7 +399,36 @@ export const SettingsModal: React.FC = () => {
 
                   <div>
                     <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
-                      Default Target Language:
+                      Image OCR Hotkey (Screen Snip):
+                    </label>
+                    <HotkeyRecorder 
+                      value={settings.ocrHotkey || 'F9'} 
+                      onChange={(newShortcut) => setSettings({ ...settings, ocrHotkey: newShortcut })} 
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Drag area to OCR & translate</span>
+                      {(settings.ocrHotkey && settings.ocrHotkey !== 'F9') && (
+                        <button
+                          type="button"
+                          onClick={() => setSettings({ ...settings, ocrHotkey: 'F9' })}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--accent-primary)',
+                            fontSize: '11px',
+                            cursor: 'pointer',
+                            textDecoration: 'underline',
+                          }}
+                        >
+                          Reset to F9
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                      Default Target Language (Translate To):
                     </label>
                     <select 
                       className="form-select"
@@ -391,6 +443,23 @@ export const SettingsModal: React.FC = () => {
                       <option value="French">French (Français)</option>
                       <option value="German">German (Deutsch)</option>
                       <option value="Spanish">Spanish (Español)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '6px' }}>
+                      <ScanText size={13} color="var(--accent-primary)" /> OCR Source Language (In Image):
+                    </label>
+                    <select 
+                      className="form-select"
+                      value={(settings.ocrLanguage && settings.ocrLanguage !== 'eng+jpn+kor+chi_sim') ? settings.ocrLanguage : 'auto'}
+                      onChange={(e) => setSettings({ ...settings, ocrLanguage: e.target.value })}
+                    >
+                      {OCR_LANGUAGE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -420,6 +489,23 @@ export const SettingsModal: React.FC = () => {
                 <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
                   {(settings.opacity ?? 0.92) >= 0.99 ? '100% Solid Opaque (No transparency or blur effect)' : 'Semi-transparent with Glassmorphism blur'}
                 </p>
+
+                <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
+                      🚀 Start Automatically with Windows
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      Launch AI Local Translator in System Tray automatically when Windows boots.
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.autoStartWithWindows ?? true}
+                    onChange={(e) => setSettings({ ...settings, autoStartWithWindows: e.target.checked })}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--accent-primary)' }}
+                  />
+                </div>
               </div>
             </div>
           )}

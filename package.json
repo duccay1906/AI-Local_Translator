@@ -11,6 +11,7 @@
   "build": {
     "appId": "com.xavis.ailocaltranslator",
     "productName": "AI Local Translator",
+    "asar": false,
     "icon": "build/icon.ico",
     "win": {
       "target": [
@@ -37,7 +38,8 @@
   "dependencies": {
     "lucide-react": "^0.427.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "tesseract.js": "^5.1.1"
   },
   "devDependencies": {
     "@types/node": "^20.14.12",

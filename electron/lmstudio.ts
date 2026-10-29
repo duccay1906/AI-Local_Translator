@@ -8,6 +8,7 @@ export interface StreamTranslateParams {
   text: string;
   targetLanguage: string;
   systemPromptTemplate?: string;
+  reasoningEffort?: string;
   onChunk: (chunk: string) => void;
   onComplete: (fullText: string) => void;
   onError: (error: Error) => void;
@@ -68,7 +69,7 @@ export async function fetchAvailableModels(baseUrl: string): Promise<string[]> {
 }
 
 export async function streamTranslation(params: StreamTranslateParams): Promise<{ abort: () => void }> {
-  let { baseUrl, model, text, targetLanguage, systemPromptTemplate, onChunk, onComplete, onError } = params;
+  let { baseUrl, model, text, targetLanguage, systemPromptTemplate, reasoningEffort, onChunk, onComplete, onError } = params;
 
   const defaultSystemPrompt = `You are a professional AI translator. Translate the user's text accurately into ${targetLanguage}. Maintain original tone, formatting, and nuances. Output ONLY the translation without introductory words or notes.`;
   const systemPrompt = systemPromptTemplate
@@ -80,8 +81,8 @@ export async function streamTranslation(params: StreamTranslateParams): Promise<
   const parsedUrl = new URL(endpoint);
   const transport = parsedUrl.protocol === 'https:' ? https : http;
 
-  const requestModel = (targetModel: string, isRetry = false): { abort: () => void } => {
-    const postData = JSON.stringify({
+  const requestModel = (targetModel: string, isRetry = false, omitReasoningEffort = false): { abort: () => void } => {
+    const payloadObj: Record<string, any> = {
       model: targetModel || '',
       messages: [
         { role: 'system', content: systemPrompt },
@@ -89,7 +90,13 @@ export async function streamTranslation(params: StreamTranslateParams): Promise<
       ],
       temperature: 0.3,
       stream: true,
-    });
+    };
+
+    if (!omitReasoningEffort) {
+      payloadObj.reasoning_effort = reasoningEffort || 'none';
+    }
+
+    const postData = JSON.stringify(payloadObj);
 
     const options: http.RequestOptions = {
       hostname: parsedUrl.hostname,
@@ -113,7 +120,13 @@ export async function streamTranslation(params: StreamTranslateParams): Promise<
           // If a specific model failed to load in LM Studio (status 400), retry with empty model string to use currently loaded model
           if (!isRetry && res.statusCode === 400 && errBody.includes('Failed to load model')) {
             console.warn('Model load failed in LM Studio, retrying with active loaded model...');
-            requestModel('', true);
+            requestModel('', true, omitReasoningEffort);
+            return;
+          }
+          // Fallback if a backend rejects reasoning_effort field
+          if (!omitReasoningEffort && res.statusCode === 400 && errBody.includes('reasoning_effort')) {
+            console.warn('Backend rejected reasoning_effort, retrying without it...');
+            requestModel(targetModel, isRetry, true);
             return;
           }
           onError(new Error(`LM Studio returned status ${res.statusCode}: ${errBody}`));
@@ -121,24 +134,42 @@ export async function streamTranslation(params: StreamTranslateParams): Promise<
         return;
       }
 
-    res.setEncoding('utf8');
+      res.setEncoding('utf8');
 
-    res.on('data', (chunk: string) => {
-      buffer += chunk;
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || ''; // keep last incomplete line in buffer
+      res.on('data', (chunk: string) => {
+        buffer += chunk;
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // keep last incomplete line in buffer
 
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith(':')) continue;
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith(':')) continue;
 
-        if (trimmed === 'data: [DONE]') {
-          onComplete(fullTranslatedText);
-          return;
+          if (trimmed === 'data: [DONE]') {
+            onComplete(fullTranslatedText);
+            return;
+          }
+
+          if (trimmed.startsWith('data: ')) {
+            const jsonStr = trimmed.substring(6);
+            try {
+              const parsed = JSON.parse(jsonStr);
+              const content = parsed.choices?.[0]?.delta?.content || '';
+              if (content) {
+                fullTranslatedText += content;
+                onChunk(content);
+              }
+            } catch (e) {
+              // Ignore partial SSE JSON parse errors
+            }
+          }
         }
+      });
 
-        if (trimmed.startsWith('data: ')) {
-          const jsonStr = trimmed.substring(6);
+      res.on('end', () => {
+        // Process any remaining buffer
+        if (buffer.trim().startsWith('data: ')) {
+          const jsonStr = buffer.trim().substring(6);
           try {
             const parsed = JSON.parse(jsonStr);
             const content = parsed.choices?.[0]?.delta?.content || '';
@@ -146,43 +177,25 @@ export async function streamTranslation(params: StreamTranslateParams): Promise<
               fullTranslatedText += content;
               onChunk(content);
             }
-          } catch (e) {
-            // Ignore partial SSE JSON parse errors
-          }
+          } catch (e) {}
         }
-      }
+        onComplete(fullTranslatedText);
+      });
     });
 
-    res.on('end', () => {
-      // Process any remaining buffer
-      if (buffer.trim().startsWith('data: ')) {
-        const jsonStr = buffer.trim().substring(6);
-        try {
-          const parsed = JSON.parse(jsonStr);
-          const content = parsed.choices?.[0]?.delta?.content || '';
-          if (content) {
-            fullTranslatedText += content;
-            onChunk(content);
-          }
-        } catch (e) {}
-      }
-      onComplete(fullTranslatedText);
+    req.on('error', (err) => {
+      onError(err);
     });
-  });
 
-  req.on('error', (err) => {
-    onError(err);
-  });
+    req.write(postData);
+    req.end();
 
-  req.write(postData);
-  req.end();
-
-  return {
-    abort: () => {
-      req.destroy();
-    },
+    return {
+      abort: () => {
+        req.destroy();
+      },
+    };
   };
-};
 
-return requestModel(model || '');
+  return requestModel(model || '');
 }
