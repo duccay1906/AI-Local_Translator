@@ -90,16 +90,17 @@ export const FloatingPopup: React.FC = () => {
       }
     });
 
-    // Listen for translation trigger from main process (hotkey, selection, or OCR output)
+    // Listen for translation trigger from main process (hotkey F8, or selection)
     const cleanupTrigger = api.onTriggerTranslate((data) => {
       setOcrStatus(null);
       setVisualData(null);
       setViewMode('text');
       setSourceText(data.text);
-      setImagePreview(data.imagePreview || null);
+      setImagePreview(null);
       setTranslatedText('');
       setErrorMessage(null);
       setIsLoading(true);
+      api.resizePopup(440, 320);
       api.translateText(data.text, targetLangRef.current);
     });
 

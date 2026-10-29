@@ -151,6 +151,25 @@ export const api = {
     }
   },
 
+  // Dedicated OCR Dialog Controls
+  closeOcrDialog: () => {
+    if (window.electronAPI) {
+      window.electronAPI.closeOcrDialog();
+    }
+  },
+
+  setOcrPinned: (pinned: boolean) => {
+    if (window.electronAPI) {
+      window.electronAPI.setOcrPinned(pinned);
+    }
+  },
+
+  resizeOcrDialog: (width: number, height: number) => {
+    if (window.electronAPI) {
+      window.electronAPI.resizeOcrDialog(width, height);
+    }
+  },
+
   copyToClipboard: (text: string) => {
     if (window.electronAPI) {
       window.electronAPI.copyToClipboard(text);

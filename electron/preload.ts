@@ -73,6 +73,11 @@ const electronAPI = {
   setPinned: (pinned: boolean) => ipcRenderer.send('set-pinned', pinned),
   resizePopup: (width: number, height: number) => ipcRenderer.send('resize-popup', { width, height }),
 
+  // OCR Dialog Controls
+  closeOcrDialog: () => ipcRenderer.send('close-ocr-dialog'),
+  setOcrPinned: (pinned: boolean) => ipcRenderer.send('set-ocr-pinned', pinned),
+  resizeOcrDialog: (width: number, height: number) => ipcRenderer.send('resize-ocr-dialog', { width, height }),
+
   // Clipboard & Helpers
   copyToClipboard: (text: string) => ipcRenderer.send('copy-to-clipboard', text),
   readClipboard: () => ipcRenderer.invoke('read-clipboard'),

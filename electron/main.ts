@@ -10,6 +10,7 @@ let popupWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
 let splashWindow: BrowserWindow | null = null;
 let snipWindow: BrowserWindow | null = null;
+let ocrDialogWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let currentAbortController: { abort: () => void } | null = null;
 let lastCapturedScreen: Electron.NativeImage | null = null;
@@ -273,6 +274,64 @@ function hideSnipWindow() {
         globalShortcut.unregister('Escape');
       }
     } catch (e) {}
+  }
+}
+
+function createOcrDialogWindow(): BrowserWindow {
+  if (ocrDialogWindow && !ocrDialogWindow.isDestroyed()) {
+    return ocrDialogWindow;
+  }
+
+  ocrDialogWindow = new BrowserWindow({
+    width: 720,
+    height: 540,
+    minWidth: 440,
+    minHeight: 300,
+    show: false,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: true,
+    icon: appIcon,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  const isDev = !app.isPackaged && process.env.VITE_DEV_SERVER_URL;
+  if (isDev) {
+    ocrDialogWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}#ocr`);
+  } else {
+    ocrDialogWindow.loadFile(path.join(__dirname, '../dist/index.html'), { hash: 'ocr' });
+  }
+
+  ocrDialogWindow.webContents.on('before-input-event', (_, input) => {
+    const key = (input.key || '').toLowerCase();
+    const code = (input.code || '').toLowerCase();
+    if (key === 'escape' || key === 'esc' || code === 'escape') {
+      hideOcrDialogWindow();
+    }
+  });
+
+  ocrDialogWindow.on('blur', () => {
+    if (ocrDialogWindow && !ocrDialogWindow.isDestroyed() && !(ocrDialogWindow as any).isPinned) {
+      hideOcrDialogWindow();
+    }
+  });
+
+  ocrDialogWindow.on('closed', () => {
+    ocrDialogWindow = null;
+  });
+
+  return ocrDialogWindow;
+}
+
+function hideOcrDialogWindow() {
+  if (ocrDialogWindow && !ocrDialogWindow.isDestroyed()) {
+    ocrDialogWindow.hide();
   }
 }
 
@@ -706,6 +765,24 @@ ipcMain.on('resize-popup', (_, { width, height }: { width: number; height: numbe
   }
 });
 
+// Dedicated OCR Dialog IPC handlers
+ipcMain.on('close-ocr-dialog', () => {
+  hideOcrDialogWindow();
+});
+
+ipcMain.on('set-ocr-pinned', (_, pinned: boolean) => {
+  if (ocrDialogWindow) {
+    (ocrDialogWindow as any).isPinned = pinned;
+    ocrDialogWindow.setAlwaysOnTop(true, pinned ? 'screen-saver' : 'normal');
+  }
+});
+
+ipcMain.on('resize-ocr-dialog', (_, { width, height }: { width: number; height: number }) => {
+  if (ocrDialogWindow) {
+    ocrDialogWindow.setSize(Math.max(400, width), Math.max(280, height));
+  }
+});
+
 ipcMain.on('open-settings-window', () => {
   createSettingsWindow();
 });
@@ -771,17 +848,42 @@ ipcMain.on('complete-snip-selection', async (_, payload: SnipSelectionResult) =>
     saveSettingsToDisk(activeSettings);
   }
 
-  const { targetX, targetY } = positionPopupAtPoint(screenX, screenY);
+  const display =
+    screen.getDisplayNearestPoint({ x: screenX, y: screenY }) || screen.getPrimaryDisplay();
+  const workArea = display.workArea;
 
-  if (!popupWindow || popupWindow.isDestroyed()) {
-    createPopupWindow();
+  const maxWidth = Math.round(workArea.width * 0.90);
+  const maxHeight = Math.round(workArea.height * 0.90);
+
+  // Target window width and height to comfortably display image at 1:1 scale + UI frame
+  const targetWinW = Math.max(520, Math.min(maxWidth, cropW + 36));
+  const targetWinH = Math.max(380, Math.min(maxHeight, cropH + 96));
+
+  let posX = Math.round(screenX + (cropW - targetWinW) / 2);
+  let posY = Math.round(screenY + (cropH - targetWinH) / 2);
+
+  if (posX < workArea.x) posX = workArea.x + 16;
+  if (posX + targetWinW > workArea.x + workArea.width) posX = workArea.x + workArea.width - targetWinW - 16;
+  if (posY < workArea.y) posY = workArea.y + 16;
+  if (posY + targetWinH > workArea.y + workArea.height) posY = workArea.y + workArea.height - targetWinH - 16;
+
+  if (!ocrDialogWindow || ocrDialogWindow.isDestroyed()) {
+    createOcrDialogWindow();
   }
 
-  showPopupWindowWithFocus();
+  ocrDialogWindow!.setBounds({
+    x: posX,
+    y: posY,
+    width: targetWinW,
+    height: targetWinH,
+  });
 
-  popupWindow?.webContents.send('ocr-state-change', {
+  ocrDialogWindow!.show();
+  ocrDialogWindow!.focus();
+
+  ocrDialogWindow?.webContents.send('ocr-state-change', {
     status: 'processing',
-    message: 'Extracting text from image (OCR)...',
+    message: 'Đang nhận diện ký tự từ ảnh (OCR)...',
     imagePreview: croppedImageDataUrl,
   });
 
@@ -790,7 +892,7 @@ ipcMain.on('complete-snip-selection', async (_, payload: SnipSelectionResult) =>
       croppedImageDataUrl,
       ocrLanguage || activeSettings.ocrLanguage || 'auto',
       (progressMsg) => {
-        popupWindow?.webContents.send('ocr-state-change', {
+        ocrDialogWindow?.webContents.send('ocr-state-change', {
           status: 'processing',
           message: progressMsg,
           imagePreview: croppedImageDataUrl,
@@ -801,18 +903,18 @@ ipcMain.on('complete-snip-selection', async (_, payload: SnipSelectionResult) =>
     const { fullText, blocks } = ocrResult;
 
     if (!fullText || !fullText.trim() || blocks.length === 0) {
-      popupWindow?.webContents.send('ocr-state-change', {
+      ocrDialogWindow?.webContents.send('ocr-state-change', {
         status: 'error',
-        message: 'No readable text found in the selected area. Try selecting a clearer region or switching the OCR language.',
+        message: 'Không tìm thấy chữ trong vùng đã chọn. Bạn hãy thử chụp lại rõ hơn hoặc đổi ngôn ngữ OCR.',
         imagePreview: croppedImageDataUrl,
       });
       return;
     }
 
     const targetLang = activeSettings.targetLanguage || 'Vietnamese';
-    popupWindow?.webContents.send('ocr-state-change', {
+    ocrDialogWindow?.webContents.send('ocr-state-change', {
       status: 'processing',
-      message: `Translating ${blocks.length} text region${blocks.length > 1 ? 's' : ''} with LM Studio...`,
+      message: `Đang dịch ${blocks.length} khối văn bản với LM Studio...`,
       imagePreview: croppedImageDataUrl,
     });
 
@@ -827,20 +929,18 @@ ipcMain.on('complete-snip-selection', async (_, payload: SnipSelectionResult) =>
 
     const fullTranslatedText = visualBlocks.map((b) => b.translatedText).join('\n\n');
 
-    popupWindow?.webContents.send('ocr-state-change', {
+    ocrDialogWindow?.webContents.send('ocr-state-change', {
       status: 'done',
       imagePreview: croppedImageDataUrl,
     });
 
-    // Send visual translation event (overlay with bounding boxes)
-    popupWindow?.webContents.send('trigger-visual-translate', {
+    // Send visual translation event to dedicated OCR Dialog
+    ocrDialogWindow?.webContents.send('trigger-visual-translate', {
       imagePreview: croppedImageDataUrl,
       blocks: visualBlocks,
       fullOriginalText: fullText,
       fullTranslatedText,
       targetLanguage: targetLang,
-      x: targetX,
-      y: targetY,
     });
 
     // Save to history
@@ -856,9 +956,9 @@ ipcMain.on('complete-snip-selection', async (_, payload: SnipSelectionResult) =>
       ...history,
     ]);
   } catch (err: any) {
-    popupWindow?.webContents.send('ocr-state-change', {
+    ocrDialogWindow?.webContents.send('ocr-state-change', {
       status: 'error',
-      message: err.message || 'Failed to recognize text from image.',
+      message: err.message || 'Lỗi khi nhận diện ký tự từ ảnh.',
       imagePreview: croppedImageDataUrl,
     });
   }

@@ -3,6 +3,7 @@ import { FloatingPopup } from './components/FloatingPopup';
 import { SettingsModal } from './components/SettingsModal';
 import { SplashScreen } from './components/SplashScreen';
 import { SnipOverlay } from './components/SnipOverlay';
+import { OcrDialog } from './components/OcrDialog';
 
 export const App: React.FC = () => {
   const [route, setRoute] = useState<string>(window.location.hash);
@@ -25,6 +26,10 @@ export const App: React.FC = () => {
 
   if (route === '#snip') {
     return <SnipOverlay />;
+  }
+
+  if (route === '#ocr') {
+    return <OcrDialog />;
   }
 
   return <FloatingPopup />;
