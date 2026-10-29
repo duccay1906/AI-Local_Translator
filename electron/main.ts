@@ -283,10 +283,10 @@ function createOcrDialogWindow(): BrowserWindow {
   }
 
   ocrDialogWindow = new BrowserWindow({
-    width: 720,
-    height: 540,
-    minWidth: 440,
-    minHeight: 300,
+    width: 820,
+    height: 560,
+    minWidth: 800,
+    minHeight: 480,
     show: false,
     frame: false,
     transparent: true,
@@ -779,7 +779,7 @@ ipcMain.on('set-ocr-pinned', (_, pinned: boolean) => {
 
 ipcMain.on('resize-ocr-dialog', (_, { width, height }: { width: number; height: number }) => {
   if (ocrDialogWindow) {
-    ocrDialogWindow.setSize(Math.max(400, width), Math.max(280, height));
+    ocrDialogWindow.setSize(Math.max(800, width), Math.max(480, height));
   }
 });
 
@@ -852,12 +852,16 @@ ipcMain.on('complete-snip-selection', async (_, payload: SnipSelectionResult) =>
     screen.getDisplayNearestPoint({ x: screenX, y: screenY }) || screen.getPrimaryDisplay();
   const workArea = display.workArea;
 
-  const maxWidth = Math.round(workArea.width * 0.90);
+  const maxWidth = Math.round(workArea.width * 0.92);
   const maxHeight = Math.round(workArea.height * 0.90);
 
+  // Minimum size guaranteed to fit all header toolbar buttons without clipping
+  const minWinW = Math.min(maxWidth, 800);
+  const minWinH = Math.min(maxHeight, 480);
+
   // Target window width and height to comfortably display image at 1:1 scale + UI frame
-  const targetWinW = Math.max(520, Math.min(maxWidth, cropW + 36));
-  const targetWinH = Math.max(380, Math.min(maxHeight, cropH + 96));
+  const targetWinW = Math.max(minWinW, Math.min(maxWidth, cropW + 40));
+  const targetWinH = Math.max(minWinH, Math.min(maxHeight, cropH + 100));
 
   let posX = Math.round(screenX + (cropW - targetWinW) / 2);
   let posY = Math.round(screenY + (cropH - targetWinH) / 2);

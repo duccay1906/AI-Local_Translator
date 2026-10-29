@@ -354,15 +354,17 @@ export const OcrDialog: React.FC = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '8px 12px',
-          background: 'rgba(18, 24, 38, 0.85)',
+          padding: '6px 12px',
+          background: 'rgba(18, 24, 38, 0.88)',
           borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-          fontSize: '12px',
-          minHeight: '42px',
+          fontSize: '11.5px',
+          minHeight: '44px',
+          flexShrink: 0,
+          overflowX: 'auto',
         }}
       >
         {/* Left: Title & Info */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
           <div
             style={{
               display: 'flex',
@@ -376,8 +378,8 @@ export const OcrDialog: React.FC = () => {
           >
             <Sparkles size={14} color="#fff" />
           </div>
-          <span style={{ fontWeight: 700, color: '#f8fafc', letterSpacing: '-0.2px' }}>
-            Visual OCR Translator
+          <span style={{ fontWeight: 700, color: '#f8fafc', letterSpacing: '-0.2px', whiteSpace: 'nowrap' }}>
+            Visual OCR
           </span>
           {visualData?.blocks && (
             <span
@@ -389,20 +391,21 @@ export const OcrDialog: React.FC = () => {
                 color: '#818cf8',
                 fontWeight: 600,
                 border: '1px solid rgba(99, 102, 241, 0.3)',
+                whiteSpace: 'nowrap',
               }}
             >
               {visualData.blocks.length} block{visualData.blocks.length > 1 ? 's' : ''}
             </span>
           )}
           {visualData?.targetLanguage && (
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
               → {visualData.targetLanguage}
             </span>
           )}
         </div>
 
         {/* Right: Controls & Actions */}
-        <div className="no-drag" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div className="no-drag" style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
           {/* Mode switch (Visual vs Text) */}
           {visualData && (
             <div
@@ -453,7 +456,7 @@ export const OcrDialog: React.FC = () => {
             </div>
           )}
 
-          {/* Scale mode: 1:1 Original vs Fit */}
+          {/* Scale mode: 1:1 vs Fit */}
           {visualData && viewMode === 'visual' && (
             <div
               style={{
@@ -483,7 +486,7 @@ export const OcrDialog: React.FC = () => {
                 }}
               >
                 <Maximize2 size={11} />
-                <span>1:1 Original</span>
+                <span>1:1</span>
               </button>
               <button
                 type="button"
@@ -504,7 +507,7 @@ export const OcrDialog: React.FC = () => {
                 }}
               >
                 <Minimize2 size={11} />
-                <span>Fit Window</span>
+                <span>Fit</span>
               </button>
             </div>
           )}
@@ -607,7 +610,7 @@ export const OcrDialog: React.FC = () => {
               style={{ width: 'auto', padding: '2px 8px', height: '22px', fontSize: '11px', gap: '4px' }}
             >
               {copiedImage ? <Check size={11} /> : <Copy size={11} />}
-              <span>{copiedImage ? 'Copied!' : 'Copy Image'}</span>
+              <span>{copiedImage ? 'Copied!' : 'Image'}</span>
             </button>
           )}
 
@@ -747,15 +750,14 @@ export const OcrDialog: React.FC = () => {
               overflow: 'auto',
               background: '#040711',
               display: 'flex',
-              alignItems: scaleMode === 'fit' ? 'center' : 'flex-start',
-              justifyContent: scaleMode === 'fit' ? 'center' : 'flex-start',
-              padding: scaleMode === 'original' ? '12px' : '6px',
+              padding: scaleMode === 'original' ? '16px' : '8px',
             }}
           >
             <div
               style={{
                 position: 'relative',
                 display: 'inline-block',
+                margin: 'auto',
                 maxWidth: scaleMode === 'fit' ? '100%' : 'none',
                 maxHeight: scaleMode === 'fit' ? '100%' : 'none',
               }}
