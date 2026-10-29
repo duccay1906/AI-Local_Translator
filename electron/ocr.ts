@@ -2,6 +2,7 @@ import { createWorker, Worker } from 'tesseract.js';
 import path from 'path';
 import fs from 'fs';
 import { app } from 'electron';
+import { OcrTextBlock } from '../src/types';
 
 // Cached workers by language key (e.g. 'kor+eng', 'jpn+eng', 'chi_sim+eng')
 const workerPool: Map<string, Worker> = new Map();
@@ -134,9 +135,10 @@ async function getOrCreateWorker(
   return createPromise;
 }
 
-interface ScoredOcrResult {
+export interface ScoredOcrResult {
   langKey: string;
   text: string;
+  blocks: OcrTextBlock[];
   score: number;
 }
 
@@ -148,33 +150,75 @@ async function recognizeWithWorker(
   try {
     const worker = await getOrCreateWorker(langKey, onProgress);
     const result = await worker.recognize(imageBuffer);
+    const paragraphs = result?.data?.paragraphs || [];
     const lines = result?.data?.lines || [];
 
-    if (lines.length > 0) {
-      const maxLineConf = Math.max(...lines.map((l) => l.confidence || 0));
-      // Filter out low-confidence border/artifact noise lines if there are strong text lines
-      const threshold = maxLineConf >= 65 ? 52 : 0;
-      const validLines = lines.filter(
-        (l) => (l.confidence || 0) >= threshold && l.text && l.text.trim().length > 0
-      );
+    const blocks: OcrTextBlock[] = [];
+    let blockIdCounter = 1;
 
-      if (validLines.length > 0) {
-        const avgConf =
-          validLines.reduce((sum, l) => sum + (l.confidence || 0), 0) / validLines.length;
-        const combinedText = cleanOcrText(validLines.map((l) => l.text).join('\n'));
-        return {
-          langKey,
-          text: combinedText,
-          score: combinedText ? avgConf : 0,
-        };
+    // Filter noise threshold
+    const maxLineConf = lines.length > 0 ? Math.max(...lines.map((l) => l.confidence || 0)) : 0;
+    const threshold = maxLineConf >= 65 ? 50 : 0;
+
+    // Extract blocks from paragraphs
+    if (paragraphs.length > 0) {
+      for (const p of paragraphs) {
+        const validLines = (p.lines || []).filter(
+          (l) => (l.confidence || 0) >= threshold && l.text && l.text.trim().length > 0
+        );
+
+        if (validLines.length > 0) {
+          const x0 = Math.min(...validLines.map((l) => l.bbox.x0));
+          const y0 = Math.min(...validLines.map((l) => l.bbox.y0));
+          const x1 = Math.max(...validLines.map((l) => l.bbox.x1));
+          const y1 = Math.max(...validLines.map((l) => l.bbox.y1));
+          const text = cleanOcrText(validLines.map((l) => l.text.trim()).join(' '));
+          const avgConf =
+            validLines.reduce((sum, l) => sum + (l.confidence || 0), 0) / validLines.length;
+
+          if (text.length > 0) {
+            blocks.push({
+              id: blockIdCounter++,
+              bbox: { x0, y0, x1, y1 },
+              text,
+              confidence: avgConf,
+            });
+          }
+        }
       }
     }
 
-    const fallbackText = cleanOcrText(result?.data?.text || '');
+    // Fallback if paragraphs didn't produce blocks
+    if (blocks.length === 0 && lines.length > 0) {
+      const validLines = lines.filter(
+        (l) => (l.confidence || 0) >= threshold && l.text && l.text.trim().length > 0
+      );
+      if (validLines.length > 0) {
+        for (const l of validLines) {
+          const text = cleanOcrText(l.text);
+          if (text) {
+            blocks.push({
+              id: blockIdCounter++,
+              bbox: l.bbox,
+              text,
+              confidence: l.confidence,
+            });
+          }
+        }
+      }
+    }
+
+    const fullText = blocks.map((b) => b.text).join('\n\n');
+    const score =
+      blocks.length > 0
+        ? blocks.reduce((sum, b) => sum + b.confidence, 0) / blocks.length
+        : result?.data?.confidence || 0;
+
     return {
       langKey,
-      text: fallbackText,
-      score: fallbackText ? result?.data?.confidence || 0 : 0,
+      text: fullText,
+      blocks,
+      score: fullText ? score : 0,
     };
   } catch (err: any) {
     // Evict broken worker from pool
@@ -189,22 +233,29 @@ async function recognizeWithWorker(
   }
 }
 
-export async function extractTextFromImage(
+export interface OcrExtractionResult {
+  fullText: string;
+  blocks: OcrTextBlock[];
+  detectedLang: string;
+}
+
+export async function extractTextAndBlocksFromImage(
   imageDataUrl: string,
   langCode: string = 'auto',
   onProgress?: (statusText: string) => void
-): Promise<string> {
+): Promise<OcrExtractionResult> {
   const normalizedLang = normalizeLangCode(langCode);
   const base64Data = imageDataUrl.replace(/^data:image\/\w+;base64,/, '');
   const imageBuffer = Buffer.from(base64Data, 'base64');
 
   if (normalizedLang === 'auto') {
-    onProgress?.('Auto-detecting language & extracting text (KR/JP/CN/EN)...');
+    onProgress?.('Auto-detecting language & text blocks (KR/JP/CN/EN)...');
     const candidates = await Promise.all(
       AUTO_CANDIDATE_LANGS.map((key) =>
         recognizeWithWorker(key, imageBuffer, onProgress).catch(() => ({
           langKey: key,
           text: '',
+          blocks: [],
           score: -1,
         }))
       )
@@ -214,16 +265,33 @@ export async function extractTextFromImage(
     const best = candidates[0];
     console.log(
       'Auto OCR scores:',
-      candidates.map((c) => `${c.langKey}:${Math.round(c.score)}`).join(', '),
+      candidates.map((c) => `${c.langKey}:${Math.round(c.score)} (blocks: ${c.blocks.length})`).join(', '),
       '-> Winner:',
       best?.langKey
     );
-    return best?.text || '';
+    return {
+      fullText: best?.text || '',
+      blocks: best?.blocks || [],
+      detectedLang: best?.langKey || 'auto',
+    };
   }
 
-  onProgress?.(`Extracting text (${normalizedLang})...`);
+  onProgress?.(`Extracting text & bounding boxes (${normalizedLang})...`);
   const res = await recognizeWithWorker(normalizedLang, imageBuffer, onProgress);
-  return res.text;
+  return {
+    fullText: res.text,
+    blocks: res.blocks,
+    detectedLang: res.langKey,
+  };
+}
+
+export async function extractTextFromImage(
+  imageDataUrl: string,
+  langCode: string = 'auto',
+  onProgress?: (statusText: string) => void
+): Promise<string> {
+  const res = await extractTextAndBlocksFromImage(imageDataUrl, langCode, onProgress);
+  return res.fullText;
 }
 
 export async function terminateOcrWorker() {

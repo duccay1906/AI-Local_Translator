@@ -49,6 +49,35 @@ export interface OcrStatePayload {
   imagePreview?: string;
 }
 
+export interface BoundingBox {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+export interface OcrTextBlock {
+  id: number;
+  bbox: BoundingBox;
+  text: string;
+  confidence: number;
+}
+
+export interface VisualBlockTranslation {
+  id: number;
+  bbox: BoundingBox;
+  originalText: string;
+  translatedText: string;
+}
+
+export interface VisualTranslationPayload {
+  imagePreview: string;
+  blocks: VisualBlockTranslation[];
+  fullOriginalText: string;
+  fullTranslatedText: string;
+  targetLanguage: string;
+}
+
 export interface TranslationHistoryItem {
   id: string;
   originalText: string;

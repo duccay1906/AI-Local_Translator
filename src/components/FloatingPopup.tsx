@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { AppSettings } from '../types';
+import { AppSettings, VisualTranslationPayload } from '../types';
+import { VisualTranslateViewer } from './VisualTranslateViewer';
 import { 
   Pin, 
   X, 
@@ -14,7 +15,9 @@ import {
   ChevronUp,
   AlertTriangle,
   Eye,
-  ScanText
+  ScanText,
+  Image as ImageIcon,
+  FileText
 } from 'lucide-react';
 
 const SUPPORTED_LANGUAGES = [
@@ -41,6 +44,8 @@ export const FloatingPopup: React.FC = () => {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [ocrStatus, setOcrStatus] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [visualData, setVisualData] = useState<VisualTranslationPayload | null>(null);
+  const [viewMode, setViewMode] = useState<'visual' | 'text'>('visual');
 
   const [popupOpacity, setPopupOpacity] = useState<number>(0.92);
   const [showOpacitySlider, setShowOpacitySlider] = useState<boolean>(false);
@@ -88,12 +93,27 @@ export const FloatingPopup: React.FC = () => {
     // Listen for translation trigger from main process (hotkey, selection, or OCR output)
     const cleanupTrigger = api.onTriggerTranslate((data) => {
       setOcrStatus(null);
+      setVisualData(null);
+      setViewMode('text');
       setSourceText(data.text);
       setImagePreview(data.imagePreview || null);
       setTranslatedText('');
       setErrorMessage(null);
       setIsLoading(true);
       api.translateText(data.text, targetLangRef.current);
+    });
+
+    // Listen for in-place visual translation with bounding boxes
+    const cleanupVisual = api.onTriggerVisualTranslate((data) => {
+      setOcrStatus(null);
+      setVisualData(data);
+      setViewMode('visual');
+      setSourceText(data.fullOriginalText);
+      setTranslatedText(data.fullTranslatedText);
+      setImagePreview(data.imagePreview);
+      setIsLoading(false);
+      // Automatically expand window slightly for comfortable visual viewing
+      api.resizePopup(520, 420);
     });
 
     // Listen for stream chunks
@@ -117,6 +137,7 @@ export const FloatingPopup: React.FC = () => {
     return () => {
       cleanupOcrState();
       cleanupTrigger();
+      cleanupVisual();
       cleanupChunk();
       cleanupComplete();
       cleanupError();
@@ -238,6 +259,39 @@ export const FloatingPopup: React.FC = () => {
 
         {/* Controls */}
         <div className="no-drag" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {/* Mode Switcher when Visual Translation is available */}
+          {visualData && (
+            <div 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                background: 'rgba(15, 23, 42, 0.8)', 
+                borderRadius: '6px', 
+                padding: '2px', 
+                border: '1px solid rgba(255, 255, 255, 0.1)' 
+              }}
+            >
+              <button
+                type="button"
+                className={`btn-icon ${viewMode === 'visual' ? 'active' : ''}`}
+                onClick={() => setViewMode('visual')}
+                title="Visual In-place Translation"
+                style={{ height: '22px', padding: '0 6px', fontSize: '10.5px', gap: '4px' }}
+              >
+                <ImageIcon size={11} /> Visual
+              </button>
+              <button
+                type="button"
+                className={`btn-icon ${viewMode === 'text' ? 'active' : ''}`}
+                onClick={() => setViewMode('text')}
+                title="Text Only View"
+                style={{ height: '22px', padding: '0 6px', fontSize: '10.5px', gap: '4px' }}
+              >
+                <FileText size={11} /> Text
+              </button>
+            </div>
+          )}
+
           {/* Target Language Select */}
           <select 
             className="form-select" 
@@ -338,132 +392,143 @@ export const FloatingPopup: React.FC = () => {
 
       {/* Main Translation Content */}
       <div style={{ flex: 1, padding: '12px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {/* Source Text / Captured Image Preview (Collapsible) */}
-        {(sourceText || imagePreview) && (
-          <div 
-            style={{ 
-              background: isSolid ? '#0f172a' : 'rgba(255, 255, 255, 0.03)', 
-              borderRadius: 'var(--radius-md)', 
-              padding: '8px 10px',
-              border: isSolid ? '1px solid #1e293b' : '1px solid rgba(255, 255, 255, 0.05)',
-              fontSize: '12px',
-              color: 'var(--text-muted)'
-            }}
-          >
-            <div 
-              onClick={() => setShowSource(!showSource)} 
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
-            >
-              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                {imagePreview && <ScanText size={12} color="var(--accent-primary)" />}
-                {sourceText ? `Source Text (${sourceText.length} chars)` : 'Captured Image (OCR...)'}
-              </span>
-              {showSource ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </div>
-            
-            {showSource && (
-              <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {imagePreview && (
-                  <div style={{ maxHeight: '64px', overflow: 'hidden', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.08)', background: '#05080f', display: 'flex', justifyContent: 'center' }}>
-                    <img src={imagePreview} alt="Snipped OCR region" style={{ maxHeight: '64px', maxWidth: '100%', objectFit: 'contain' }} />
-                  </div>
-                )}
-                {sourceText && (
-                  <div 
-                    className="selectable"
-                    style={{ 
-                      maxHeight: '60px', 
-                      overflowY: 'auto', 
-                      whiteSpace: 'pre-wrap', 
-                      color: 'var(--text-main)',
-                      fontSize: '12px',
-                      lineHeight: '1.4',
-                      userSelect: 'text',
-                      WebkitUserSelect: 'text'
-                    }}
-                  >
-                    {sourceText}
+        {/* If in Visual Mode with blocks, display the Visual In-place Canvas Viewer */}
+        {visualData && viewMode === 'visual' ? (
+          <VisualTranslateViewer
+            imagePreview={visualData.imagePreview}
+            blocks={visualData.blocks}
+            targetLanguage={targetLang}
+          />
+        ) : (
+          <>
+            {/* Source Text / Captured Image Preview (Collapsible) */}
+            {(sourceText || imagePreview) && (
+              <div 
+                style={{ 
+                  background: isSolid ? '#0f172a' : 'rgba(255, 255, 255, 0.03)', 
+                  borderRadius: 'var(--radius-md)', 
+                  padding: '8px 10px',
+                  border: isSolid ? '1px solid #1e293b' : '1px solid rgba(255, 255, 255, 0.05)',
+                  fontSize: '12px',
+                  color: 'var(--text-muted)'
+                }}
+              >
+                <div 
+                  onClick={() => setShowSource(!showSource)} 
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
+                >
+                  <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {imagePreview && <ScanText size={12} color="var(--accent-primary)" />}
+                    {sourceText ? `Source Text (${sourceText.length} chars)` : 'Captured Image (OCR...)'}
+                  </span>
+                  {showSource ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </div>
+                
+                {showSource && (
+                  <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {imagePreview && (
+                      <div style={{ maxHeight: '64px', overflow: 'hidden', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.08)', background: '#05080f', display: 'flex', justifyContent: 'center' }}>
+                        <img src={imagePreview} alt="Snipped OCR region" style={{ maxHeight: '64px', maxWidth: '100%', objectFit: 'contain' }} />
+                      </div>
+                    )}
+                    {sourceText && (
+                      <div 
+                        className="selectable"
+                        style={{ 
+                          maxHeight: '60px', 
+                          overflowY: 'auto', 
+                          whiteSpace: 'pre-wrap', 
+                          color: 'var(--text-main)',
+                          fontSize: '12px',
+                          lineHeight: '1.4',
+                          userSelect: 'text',
+                          WebkitUserSelect: 'text'
+                        }}
+                      >
+                        {sourceText}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             )}
-          </div>
-        )}
 
-        {/* Translation Result Output */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          {errorMessage ? (
-            <div 
-              style={{ 
-                background: 'rgba(239, 68, 68, 0.1)', 
-                border: '1px solid rgba(239, 68, 68, 0.3)', 
-                borderRadius: 'var(--radius-md)', 
-                padding: '12px', 
-                color: '#fca5a5',
-                fontSize: '12px',
-                display: 'flex',
-                gap: '10px',
-                alignItems: 'flex-start'
-              }}
-            >
-              <AlertTriangle size={18} color="#ef4444" style={{ flexShrink: 0, marginTop: '2px' }} />
-              <div>
-                <strong style={{ display: 'block', marginBottom: '4px' }}>Translation / OCR Notice</strong>
-                <p style={{ margin: 0, lineHeight: '1.4' }}>{errorMessage}</p>
-                <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-                  <button 
-                    className="btn-primary" 
-                    onClick={() => api.startOcrCapture()}
-                    style={{ padding: '4px 10px', fontSize: '11px' }}
-                  >
-                    <ScanText size={12} /> Resnip Image
-                  </button>
-                  <button 
-                    className="btn-icon" 
-                    onClick={() => api.openSettingsWindow()}
-                    style={{ width: 'auto', padding: '4px 10px', fontSize: '11px' }}
-                  >
-                    <Settings size={12} /> Settings
-                  </button>
+            {/* Translation Result Output */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              {errorMessage ? (
+                <div 
+                  style={{ 
+                    background: 'rgba(239, 68, 68, 0.1)', 
+                    border: '1px solid rgba(239, 68, 68, 0.3)', 
+                    borderRadius: 'var(--radius-md)', 
+                    padding: '12px', 
+                    color: '#fca5a5',
+                    fontSize: '12px',
+                    display: 'flex',
+                    gap: '10px',
+                    alignItems: 'flex-start'
+                  }}
+                >
+                  <AlertTriangle size={18} color="#ef4444" style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <div>
+                    <strong style={{ display: 'block', marginBottom: '4px' }}>Translation / OCR Notice</strong>
+                    <p style={{ margin: 0, lineHeight: '1.4' }}>{errorMessage}</p>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                      <button 
+                        className="btn-primary" 
+                        onClick={() => api.startOcrCapture()}
+                        style={{ padding: '4px 10px', fontSize: '11px' }}
+                      >
+                        <ScanText size={12} /> Resnip Image
+                      </button>
+                      <button 
+                        className="btn-icon" 
+                        onClick={() => api.openSettingsWindow()}
+                        style={{ width: 'auto', padding: '4px 10px', fontSize: '11px' }}
+                      >
+                        <Settings size={12} /> Settings
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          ) : (
-            <div 
-              className={`selectable ${(isLoading || ocrStatus) ? 'typing-indicator' : ''}`}
-              style={{ 
-                flex: 1, 
-                minHeight: '100px', 
-                fontSize: '13.5px', 
-                lineHeight: '1.55', 
-                color: 'var(--text-main)', 
-                whiteSpace: 'pre-wrap',
-                background: isSolid ? '#0e1422' : 'rgba(11, 15, 25, 0.5)',
-                padding: '10px',
-                borderRadius: 'var(--radius-md)',
-                border: isSolid ? '1px solid #1e293b' : '1px solid var(--glass-border)',
-                userSelect: 'text',
-                WebkitUserSelect: 'text',
-                cursor: 'text'
-              }}
-            >
-              {ocrStatus ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-primary)', fontStyle: 'italic' }}>
-                  <RotateCw size={14} className="spin" />
-                  <span>{ocrStatus}</span>
-                </div>
-              ) : translatedText ? (
-                translatedText
-              ) : isLoading ? (
-                <span style={{ color: 'var(--text-dim)', fontStyle: 'italic' }}>Translating with LM Studio...</span>
               ) : (
-                <span style={{ color: 'var(--text-dim)' }}>
-                  Press <kbd style={{ background: '#1e293b', padding: '2px 6px', borderRadius: '4px', border: '1px solid #334155' }}>{settings?.hotkey || 'F8'}</kbd> to translate selected text, or <kbd style={{ background: '#1e293b', padding: '2px 6px', borderRadius: '4px', border: '1px solid #334155' }}>{settings?.ocrHotkey || 'F9'}</kbd> to snip & translate from an image.
-                </span>
+                <div 
+                  className={`selectable ${(isLoading || ocrStatus) ? 'typing-indicator' : ''}`}
+                  style={{ 
+                    flex: 1, 
+                    minHeight: '100px', 
+                    fontSize: '13.5px', 
+                    lineHeight: '1.55', 
+                    color: 'var(--text-main)', 
+                    whiteSpace: 'pre-wrap',
+                    background: isSolid ? '#0e1422' : 'rgba(11, 15, 25, 0.5)',
+                    padding: '10px',
+                    borderRadius: 'var(--radius-md)',
+                    border: isSolid ? '1px solid #1e293b' : '1px solid var(--glass-border)',
+                    userSelect: 'text',
+                    WebkitUserSelect: 'text',
+                    cursor: 'text'
+                  }}
+                >
+                  {ocrStatus ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-primary)', fontStyle: 'italic' }}>
+                      <RotateCw size={14} className="spin" />
+                      <span>{ocrStatus}</span>
+                    </div>
+                  ) : translatedText ? (
+                    translatedText
+                  ) : isLoading ? (
+                    <span style={{ color: 'var(--text-dim)', fontStyle: 'italic' }}>Translating with LM Studio...</span>
+                  ) : (
+                    <span style={{ color: 'var(--text-dim)' }}>
+                      Press <kbd style={{ background: '#1e293b', padding: '2px 6px', borderRadius: '4px', border: '1px solid #334155' }}>{settings?.hotkey || 'F8'}</kbd> to translate selected text, or <kbd style={{ background: '#1e293b', padding: '2px 6px', borderRadius: '4px', border: '1px solid #334155' }}>{settings?.ocrHotkey || 'F9'}</kbd> to snip & translate from an image.
+                    </span>
+                  )}
+                </div>
               )}
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
 
       {/* Action Footer */}

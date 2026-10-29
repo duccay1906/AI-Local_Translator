@@ -46,8 +46,8 @@
 
 ---
 
-### 2.2. Chụp & Dịch chữ từ ảnh màn hình - OCR (Phím tắt: `F9`)
-Áp dụng khi gặp các nội dung không bôi đen được bằng chuột (Hình ảnh, video YouTube, truyện tranh, game, ảnh chụp tài liệu, slide thuyết trình,...):
+### 2.2. Chụp & Dịch chữ từ ảnh màn hình - Visual OCR (Phím tắt: `F9`)
+Áp dụng khi gặp các nội dung không bôi đen được bằng chuột (Đoạn chat Messenger, KakaoTalk, Telegram, Zalo, video YouTube, truyện tranh, game, ảnh chụp tài liệu, slide thuyết trình,...):
 1. Nhấn phím **`F9`** (hoặc phím tắt do bạn tùy chỉnh).
 2. Màn hình sẽ tối mờ lại kèm con trỏ chữ thập `+` (tương tự công cụ `Win + Shift + S`).
 3. **Kéo giữ chuột trái** để khoanh vùng hình ảnh chứa chữ cần dịch:
@@ -55,10 +55,13 @@
      - `Auto Detect`: Tự động nhận diện (Anh / Hàn / Nhật / Trung / Việt).
      - Hoặc chọn cố định từng tiếng: `Korean + English`, `Japanese + English`, `Chinese + English`, `English Only`,...
    - Nếu muốn hủy chụp: Nhấn phím **`Esc`** hoặc **click chuột phải**.
-4. Khi bạn **thả chuột trái**, ứng dụng sẽ tự động:
-   - Trích xuất chữ từ vùng ảnh bằng OCR offline.
-   - Mở hộp thoại dịch tại vị trí vừa khoanh vùng.
-   - Gửi văn bản sang AI để dịch và hiển thị kết quả ngay lập tức.
+4. Khi bạn **thả chuột trái**, ứng dụng sẽ tự động kích hoạt tính năng **Dịch đè chữ trực tiếp (In-place Visual Translation)**:
+   - Nhận diện chính xác tọa độ vị trí của từng đoạn chat / khối chữ trên ảnh.
+   - Gửi sang AI dịch giữ nguyên ngữ cảnh và đè câu dịch tiếng Việt vào đúng vị trí của chữ gốc trên ảnh (tự động lấy mẫu màu nền và căn chỉnh font chữ vừa khít).
+   - **Nút Compare (Original):** Bấm để so sánh đối chiếu giữa ảnh dịch và ảnh gốc ban đầu.
+   - **Click vào bong bóng chat bất kỳ:** Tự động copy câu dịch của đoạn chat đó.
+   - **Nút Copy Image:** Sao chép thẳng bức ảnh đã dịch vào Clipboard để dán (Ctrl+V) ngay vào tin nhắn hoặc tài liệu.
+   - **Chuyển chế độ xem:** Có nút chuyển nhanh giữa tab `Visual` (Xem ảnh dịch đè) và tab `Text` (Xem dạng văn bản thuần).
 
 ---
 

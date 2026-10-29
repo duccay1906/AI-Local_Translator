@@ -1,4 +1,4 @@
-import { AppSettings, TranslationHistoryItem, SnipCapturePayload, SnipSelectionResult, OcrStatePayload } from '../types';
+import { AppSettings, TranslationHistoryItem, SnipCapturePayload, SnipSelectionResult, OcrStatePayload, VisualTranslationPayload } from '../types';
 
 declare global {
   interface Window {
@@ -81,6 +81,13 @@ export const api = {
     return () => {};
   },
 
+  onTriggerVisualTranslate: (callback: (data: VisualTranslationPayload & { x?: number; y?: number }) => void) => {
+    if (window.electronAPI) {
+      return window.electronAPI.onTriggerVisualTranslate(callback);
+    }
+    return () => {};
+  },
+
   onOcrStateChange: (callback: (data: OcrStatePayload) => void) => {
     if (window.electronAPI) {
       return window.electronAPI.onOcrStateChange(callback);
@@ -135,6 +142,12 @@ export const api = {
   setPinned: (pinned: boolean) => {
     if (window.electronAPI) {
       window.electronAPI.setPinned(pinned);
+    }
+  },
+
+  resizePopup: (width: number, height: number) => {
+    if (window.electronAPI) {
+      window.electronAPI.resizePopup(width, height);
     }
   },
 

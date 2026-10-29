@@ -2,6 +2,8 @@ import http from 'http';
 import https from 'https';
 import { URL } from 'url';
 
+import { OcrTextBlock, VisualBlockTranslation } from '../src/types';
+
 export interface StreamTranslateParams {
   baseUrl: string;
   model: string;
@@ -199,3 +201,177 @@ export async function streamTranslation(params: StreamTranslateParams): Promise<
 
   return requestModel(model || '');
 }
+
+export async function translateBlocks(params: {
+  baseUrl: string;
+  model: string;
+  blocks: OcrTextBlock[];
+  targetLanguage: string;
+  reasoningEffort?: string;
+  systemPromptTemplate?: string;
+}): Promise<VisualBlockTranslation[]> {
+  const { baseUrl, model, blocks, targetLanguage, reasoningEffort } = params;
+  if (!blocks || blocks.length === 0) return [];
+
+  const cleanUrl = baseUrl.replace(/\/+$/, '');
+  const endpoint = `${cleanUrl}/v1/chat/completions`;
+  const parsedUrl = new URL(endpoint);
+  const transport = parsedUrl.protocol === 'https:' ? https : http;
+
+  // Single block case
+  if (blocks.length === 1) {
+    const single = blocks[0];
+    return new Promise((resolve) => {
+      const payload = {
+        model: model || '',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a professional translator. Translate the given text accurately into ${targetLanguage}. Maintain tone and context. Output ONLY the translated text without extra explanation.`,
+          },
+          { role: 'user', content: single.text },
+        ],
+        temperature: 0.3,
+        reasoning_effort: reasoningEffort || 'none',
+        stream: false,
+      };
+
+      const postData = JSON.stringify(payload);
+      const req = transport.request(
+        {
+          hostname: parsedUrl.hostname,
+          port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
+          path: parsedUrl.pathname + parsedUrl.search,
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(postData),
+          },
+        },
+        (res) => {
+          let body = '';
+          res.on('data', (d) => (body += d));
+          res.on('end', () => {
+            try {
+              const parsed = JSON.parse(body);
+              const trans = parsed.choices?.[0]?.message?.content?.trim() || single.text;
+              resolve([
+                {
+                  id: single.id,
+                  bbox: single.bbox,
+                  originalText: single.text,
+                  translatedText: trans,
+                },
+              ]);
+            } catch (e) {
+              resolve([
+                {
+                  id: single.id,
+                  bbox: single.bbox,
+                  originalText: single.text,
+                  translatedText: single.text,
+                },
+              ]);
+            }
+          });
+        }
+      );
+      req.on('error', () => {
+        resolve([
+          {
+            id: single.id,
+            bbox: single.bbox,
+            originalText: single.text,
+            translatedText: single.text,
+          },
+        ]);
+      });
+      req.write(postData);
+      req.end();
+    });
+  }
+
+  // Multiple blocks case (Numbered lines [1], [2]...)
+  const promptText = blocks.map((b) => `[${b.id}] ${b.text}`).join('\n');
+  const systemPrompt = `You are an expert bilingual translator. Translate each numbered segment into ${targetLanguage}. Maintain original numbering format exactly:
+[1] <translated segment 1>
+[2] <translated segment 2>
+Output ONLY the numbered translations without notes or greetings.`;
+
+  return new Promise((resolve) => {
+    const payload = {
+      model: model || '',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: promptText },
+      ],
+      temperature: 0.3,
+      reasoning_effort: reasoningEffort || 'none',
+      stream: false,
+    };
+
+    const postData = JSON.stringify(payload);
+    const req = transport.request(
+      {
+        hostname: parsedUrl.hostname,
+        port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
+        path: parsedUrl.pathname + parsedUrl.search,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData),
+        },
+      },
+      (res) => {
+        let body = '';
+        res.on('data', (d) => (body += d));
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(body);
+            const content = parsed.choices?.[0]?.message?.content || '';
+            const translationsMap = new Map<number, string>();
+            const regex = /\[(\d+)\]\s*([\s\S]*?)(?=(?:\[\d+\]|$))/g;
+            let m;
+            while ((m = regex.exec(content)) !== null) {
+              const id = parseInt(m[1], 10);
+              const text = m[2].trim();
+              if (id && text) {
+                translationsMap.set(id, text);
+              }
+            }
+
+            const results: VisualBlockTranslation[] = blocks.map((b) => ({
+              id: b.id,
+              bbox: b.bbox,
+              originalText: b.text,
+              translatedText: translationsMap.get(b.id) || b.text,
+            }));
+            resolve(results);
+          } catch (e) {
+            resolve(
+              blocks.map((b) => ({
+                id: b.id,
+                bbox: b.bbox,
+                originalText: b.text,
+                translatedText: b.text,
+              }))
+            );
+          }
+        });
+      }
+    );
+    req.on('error', () => {
+      resolve(
+        blocks.map((b) => ({
+          id: b.id,
+          bbox: b.bbox,
+          originalText: b.text,
+          translatedText: b.text,
+        }))
+      );
+    });
+    req.write(postData);
+    req.end();
+  });
+}
+

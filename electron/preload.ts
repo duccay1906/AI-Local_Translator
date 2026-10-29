@@ -27,6 +27,13 @@ const electronAPI = {
     return () => ipcRenderer.removeListener('trigger-translate', listener);
   },
 
+  // Visual in-place translation event with bounding boxes
+  onTriggerVisualTranslate: (callback: (data: any) => void) => {
+    const listener = (_: any, data: any) => callback(data);
+    ipcRenderer.on('trigger-visual-translate', listener);
+    return () => ipcRenderer.removeListener('trigger-visual-translate', listener);
+  },
+
   // OCR Status & Snipping Overlay IPC
   onOcrStateChange: (callback: (data: { status: 'processing' | 'done' | 'error'; message?: string; imagePreview?: string }) => void) => {
     const listener = (_: any, data: { status: 'processing' | 'done' | 'error'; message?: string; imagePreview?: string }) => callback(data);

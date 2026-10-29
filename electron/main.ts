@@ -2,8 +2,8 @@ import { app, BrowserWindow, globalShortcut, ipcMain, screen, clipboard, Tray, M
 import path from 'path';
 import fs from 'fs';
 import { exec } from 'child_process';
-import { streamTranslation, fetchAvailableModels } from './lmstudio';
-import { extractTextFromImage, terminateOcrWorker } from './ocr';
+import { streamTranslation, fetchAvailableModels, translateBlocks } from './lmstudio';
+import { extractTextFromImage, extractTextAndBlocksFromImage, terminateOcrWorker } from './ocr';
 import { AppSettings, TranslationHistoryItem, SnipSelectionResult } from '../src/types';
 
 let popupWindow: BrowserWindow | null = null;
@@ -786,9 +786,9 @@ ipcMain.on('complete-snip-selection', async (_, payload: SnipSelectionResult) =>
   });
 
   try {
-    const extractedText = await extractTextFromImage(
+    const ocrResult = await extractTextAndBlocksFromImage(
       croppedImageDataUrl,
-      ocrLanguage || activeSettings.ocrLanguage || 'eng+jpn+kor+chi_sim',
+      ocrLanguage || activeSettings.ocrLanguage || 'auto',
       (progressMsg) => {
         popupWindow?.webContents.send('ocr-state-change', {
           status: 'processing',
@@ -798,7 +798,9 @@ ipcMain.on('complete-snip-selection', async (_, payload: SnipSelectionResult) =>
       }
     );
 
-    if (!extractedText || !extractedText.trim()) {
+    const { fullText, blocks } = ocrResult;
+
+    if (!fullText || !fullText.trim() || blocks.length === 0) {
       popupWindow?.webContents.send('ocr-state-change', {
         status: 'error',
         message: 'No readable text found in the selected area. Try selecting a clearer region or switching the OCR language.',
@@ -807,17 +809,61 @@ ipcMain.on('complete-snip-selection', async (_, payload: SnipSelectionResult) =>
       return;
     }
 
+    const targetLang = activeSettings.targetLanguage || 'Vietnamese';
+    popupWindow?.webContents.send('ocr-state-change', {
+      status: 'processing',
+      message: `Translating ${blocks.length} text region${blocks.length > 1 ? 's' : ''} with LM Studio...`,
+      imagePreview: croppedImageDataUrl,
+    });
+
+    const visualBlocks = await translateBlocks({
+      baseUrl: activeSettings.lmStudioUrl,
+      model: activeSettings.modelName,
+      blocks,
+      targetLanguage: targetLang,
+      reasoningEffort: activeSettings.reasoningEffort || 'none',
+      systemPromptTemplate: activeSettings.systemPrompt,
+    });
+
+    const fullTranslatedText = visualBlocks.map((b) => b.translatedText).join('\n\n');
+
     popupWindow?.webContents.send('ocr-state-change', {
       status: 'done',
       imagePreview: croppedImageDataUrl,
     });
 
+    // Send visual translation event (overlay with bounding boxes)
+    popupWindow?.webContents.send('trigger-visual-translate', {
+      imagePreview: croppedImageDataUrl,
+      blocks: visualBlocks,
+      fullOriginalText: fullText,
+      fullTranslatedText,
+      targetLanguage: targetLang,
+      x: targetX,
+      y: targetY,
+    });
+
+    // Also populate standard text translation stream
     popupWindow?.webContents.send('trigger-translate', {
-      text: extractedText,
+      text: fullText,
       x: targetX,
       y: targetY,
       imagePreview: croppedImageDataUrl,
     });
+    popupWindow?.webContents.send('translate-complete', fullTranslatedText);
+
+    // Save to history
+    const history = loadHistory();
+    saveHistoryToDisk([
+      {
+        id: Date.now().toString(),
+        originalText: fullText,
+        translatedText: fullTranslatedText,
+        targetLanguage: targetLang,
+        timestamp: Date.now(),
+      },
+      ...history,
+    ]);
   } catch (err: any) {
     popupWindow?.webContents.send('ocr-state-change', {
       status: 'error',
