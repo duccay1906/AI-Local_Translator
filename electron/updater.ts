@@ -235,9 +235,19 @@ del "%~f0"
   }
 
   // Installer update (or normal exe)
-  spawn(downloadedFilePath, [], {
+  const tempBat = path.join(app.getPath('temp'), `apply_installer_${Date.now()}.bat`);
+  const scriptContent = `@echo off
+timeout /t 2 /nobreak >nul
+start "" "${downloadedFilePath}"
+del "%~f0"
+`;
+
+  fs.writeFileSync(tempBat, scriptContent, 'utf-8');
+
+  spawn('cmd.exe', ['/c', tempBat], {
     detached: true,
     stdio: 'ignore',
+    windowsHide: true,
   }).unref();
 
   app.quit();

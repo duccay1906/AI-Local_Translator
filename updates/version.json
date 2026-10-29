@@ -1,8 +1,8 @@
 {
-  "version": "1.0.1",
+  "version": "1.0.2",
   "releaseDate": "2026-10-29",
-  "downloadUrl": "AI Local Translator Setup 1.0.1.exe",
-  "installerUrl": "AI Local Translator Setup 1.0.1.exe",
-  "portableUrl": "AI Local Translator 1.0.1.exe",
-  "releaseNotes": "Added auto-detection for Portable vs Installer updates"
+  "downloadUrl": "AI Local Translator Setup 1.0.2.exe",
+  "installerUrl": "AI Local Translator Setup 1.0.2.exe",
+  "portableUrl": "AI Local Translator 1.0.2.exe",
+  "releaseNotes": "Official Version 1.0.2 with LAN Auto Update"
 }

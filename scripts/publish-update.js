@@ -24,6 +24,9 @@ if (!fs.existsSync(UPDATES_DIR)) {
   fs.mkdirSync(UPDATES_DIR, { recursive: true });
 }
 
+const pkg = require(path.join(ROOT_DIR, 'package.json'));
+const version = pkg.version || '1.0.1';
+
 // Find all .exe files in release directory
 const releaseFiles = fs.readdirSync(RELEASE_DIR).filter((f) => f.endsWith('.exe'));
 if (releaseFiles.length === 0) {
@@ -31,9 +34,12 @@ if (releaseFiles.length === 0) {
   process.exit(1);
 }
 
-// Find Installer and Portable builds
-const installerExe = releaseFiles.find((f) => /setup/i.test(f));
-const portableExe = releaseFiles.find((f) => !/setup/i.test(f));
+// Find Installer and Portable builds for THIS specific version (or newest)
+const installerExe = releaseFiles.find((f) => /setup/i.test(f) && f.includes(version))
+  || releaseFiles.filter((f) => /setup/i.test(f)).sort((a, b) => fs.statSync(path.join(RELEASE_DIR, b)).mtimeMs - fs.statSync(path.join(RELEASE_DIR, a)).mtimeMs)[0];
+
+const portableExe = releaseFiles.find((f) => !/setup/i.test(f) && f.includes(version))
+  || releaseFiles.filter((f) => !/setup/i.test(f)).sort((a, b) => fs.statSync(path.join(RELEASE_DIR, b)).mtimeMs - fs.statSync(path.join(RELEASE_DIR, a)).mtimeMs)[0];
 
 if (installerExe) {
   console.log(`📦 Found Installer build: ${installerExe}`);
@@ -47,8 +53,6 @@ if (portableExe) {
 
 const primaryExe = installerExe || portableExe || releaseFiles[0];
 
-const pkg = require(path.join(ROOT_DIR, 'package.json'));
-const version = pkg.version || '1.0.1';
 const releaseNotes = process.argv.slice(2).join(' ') || 
   `- Version ${version} release.\n- Improved performance, visual OCR dialog enhancements, and bug fixes.`;
 
