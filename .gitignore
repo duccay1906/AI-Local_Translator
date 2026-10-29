@@ -6,6 +6,8 @@ node_modules/
 dist/
 dist-electron/
 release/
+updates/*.exe
+*.exe
 
 # IDE and OS files
 .vscode/

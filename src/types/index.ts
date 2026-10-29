@@ -16,6 +16,25 @@ export interface AppSettings {
   autoCopySelection: boolean;
   theme: AppTheme;
   opacity?: number;
+  updateServerUrl?: string;
+  autoCheckUpdate?: boolean;
+}
+
+export interface AppUpdateInfo {
+  version: string;
+  releaseDate?: string;
+  releaseNotes?: string;
+  downloadUrl: string;
+  fileName?: string;
+  fileSize?: number;
+  sha256?: string;
+}
+
+export interface UpdateCheckResult {
+  hasUpdate: boolean;
+  currentVersion: string;
+  updateInfo?: AppUpdateInfo;
+  error?: string;
 }
 
 export interface SnipCapturePayload {

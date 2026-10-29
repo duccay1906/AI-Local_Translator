@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { AppSettings, TranslationHistoryItem, ReasoningEffort } from '../types';
+import { AppSettings, TranslationHistoryItem, ReasoningEffort, UpdateCheckResult } from '../types';
 import { 
   Server, 
   Cpu, 
@@ -16,7 +16,9 @@ import {
   Copy,
   Check,
   Eye,
-  ScanText
+  ScanText,
+  Download,
+  ArrowUpCircle
 } from 'lucide-react';
 import { OCR_LANGUAGE_OPTIONS } from './SnipOverlay';
 
@@ -136,7 +138,7 @@ const HotkeyRecorder: React.FC<{ value: string; onChange: (shortcut: string) => 
 };
 
 export const SettingsModal: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'general' | 'prompt' | 'history'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'prompt' | 'updates' | 'history'>('general');
   const [settings, setSettings] = useState<AppSettings>({
     lmStudioUrl: 'http://192.168.1.130:1234',
     modelName: 'local-model',
@@ -150,6 +152,8 @@ export const SettingsModal: React.FC = () => {
     autoStartWithWindows: true,
     autoCopySelection: true,
     theme: 'dark',
+    updateServerUrl: 'http://192.168.1.6:8080/updates',
+    autoCheckUpdate: true,
   });
 
   const [availableModels, setAvailableModels] = useState<string[]>([]);
@@ -160,17 +164,69 @@ export const SettingsModal: React.FC = () => {
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Auto-Update States
+  const [appVersion, setAppVersion] = useState<string>('1.0.1');
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState<boolean>(false);
+  const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null);
+  const [isDownloadingUpdate, setIsDownloadingUpdate] = useState<boolean>(false);
+  const [downloadProgress, setDownloadProgress] = useState<number>(0);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+
   useEffect(() => {
-    // Load initial settings and history
+    // Load initial settings, version and history
     api.getSettings().then((s) => {
       setSettings(s);
       loadModels(s.lmStudioUrl);
     });
 
+    api.getAppVersion().then((ver) => {
+      if (ver) setAppVersion(ver);
+    });
+
     api.getHistory().then((h) => {
       setHistoryItems(h);
     });
+
+    // Listen to update download progress
+    const unsubscribeProgress = api.onUpdateDownloadProgress((pct) => {
+      setDownloadProgress(pct);
+    });
+
+    return () => {
+      unsubscribeProgress();
+    };
   }, []);
+
+  const handleCheckUpdates = async () => {
+    setIsCheckingUpdate(true);
+    setUpdateError(null);
+    try {
+      // Save settings first in case URL changed
+      await api.saveSettings(settings);
+      const res = await api.checkForUpdates();
+      setUpdateResult(res);
+      if (res.error) {
+        setUpdateError(res.error);
+      }
+    } catch (err: any) {
+      setUpdateError(err.message || 'Failed to check for updates');
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
+
+  const handleDownloadAndApply = async () => {
+    if (!updateResult?.updateInfo?.downloadUrl) return;
+    setIsDownloadingUpdate(true);
+    setDownloadProgress(0);
+    setUpdateError(null);
+    try {
+      await api.downloadAndApplyUpdate(updateResult.updateInfo.downloadUrl);
+    } catch (err: any) {
+      setUpdateError(err.message || 'Failed to download or apply update');
+      setIsDownloadingUpdate(false);
+    }
+  };
 
   useEffect(() => {
     if (activeTab === 'history') {
@@ -285,6 +341,14 @@ export const SettingsModal: React.FC = () => {
             style={{ width: '100%', height: '40px', justifyContent: 'flex-start', padding: '0 12px', gap: '10px' }}
           >
             <Globe size={16} /> System Prompt
+          </button>
+
+          <button 
+            className={`btn-icon ${activeTab === 'updates' ? 'active' : ''}`}
+            onClick={() => setActiveTab('updates')}
+            style={{ width: '100%', height: '40px', justifyContent: 'flex-start', padding: '0 12px', gap: '10px' }}
+          >
+            <ArrowUpCircle size={16} /> Software Updates
           </button>
 
           <button 
@@ -550,6 +614,226 @@ export const SettingsModal: React.FC = () => {
                     Set Dictionary Lookup Prompt
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'updates' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '600px' }}>
+              {/* Version & Status Card */}
+              <div className="glass-panel" style={{ padding: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <h3 style={{ fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <ArrowUpCircle size={18} color="var(--accent-primary)" /> Application Updates
+                    </h3>
+                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      Current Version: <strong style={{ color: '#fff' }}>v{appVersion}</strong>
+                    </p>
+                  </div>
+
+                  <button
+                    className="btn-secondary"
+                    onClick={handleCheckUpdates}
+                    disabled={isCheckingUpdate || isDownloadingUpdate}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '6px 14px' }}
+                  >
+                    <RefreshCw size={14} className={isCheckingUpdate ? 'spin-animation' : ''} />
+                    {isCheckingUpdate ? 'Checking LAN...' : 'Check for Updates'}
+                  </button>
+                </div>
+              </div>
+
+              {/* LAN Update Server Configuration */}
+              <div className="glass-panel" style={{ padding: '16px' }}>
+                <h4 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px', color: 'var(--text-main)' }}>
+                  Internal LAN Update Server
+                </h4>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                  Point clients to the internal server hosting version manifests and binary updates.
+                </p>
+
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                    Server URL (e.g., http://192.168.1.6:8080/updates):
+                  </label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={settings.updateServerUrl || ''}
+                    placeholder="http://192.168.1.6:8080/updates"
+                    onChange={(e) => setSettings({ ...settings, updateServerUrl: e.target.value })}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="checkbox"
+                    id="autoCheckUpdate"
+                    checked={settings.autoCheckUpdate !== false}
+                    onChange={(e) => setSettings({ ...settings, autoCheckUpdate: e.target.checked })}
+                    style={{ cursor: 'pointer', accentColor: 'var(--accent-primary)' }}
+                  />
+                  <label htmlFor="autoCheckUpdate" style={{ fontSize: '12px', color: 'var(--text-main)', cursor: 'pointer' }}>
+                    Automatically check for updates on startup
+                  </label>
+                </div>
+              </div>
+
+              {/* Error Alert */}
+              {updateError && (
+                <div
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.15)',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '12px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    color: '#fca5a5',
+                    fontSize: '12px',
+                  }}
+                >
+                  <XCircle size={16} color="#ef4444" style={{ flexShrink: 0 }} />
+                  <div>{updateError}</div>
+                </div>
+              )}
+
+              {/* Update Available Box */}
+              {updateResult?.hasUpdate && updateResult.updateInfo && (
+                <div
+                  className="glass-panel"
+                  style={{
+                    padding: '18px',
+                    border: '1px solid rgba(99, 102, 241, 0.5)',
+                    background: 'rgba(99, 102, 241, 0.08)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                    <div>
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          textTransform: 'uppercase',
+                          fontWeight: 700,
+                          letterSpacing: '0.05em',
+                          color: 'var(--accent-primary)',
+                        }}
+                      >
+                        New Version Ready
+                      </span>
+                      <h4 style={{ fontSize: '16px', fontWeight: 700, color: '#fff', marginTop: '2px' }}>
+                        🎉 Version {updateResult.updateInfo.version} Available
+                      </h4>
+                      {updateResult.updateInfo.releaseDate && (
+                        <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
+                          Released on {updateResult.updateInfo.releaseDate}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Release Notes */}
+                  {updateResult.updateInfo.releaseNotes && (
+                    <div
+                      style={{
+                        background: 'rgba(0, 0, 0, 0.25)',
+                        borderRadius: 'var(--radius-sm)',
+                        padding: '12px',
+                        fontSize: '12px',
+                        color: 'var(--text-main)',
+                        whiteSpace: 'pre-wrap',
+                        marginBottom: '16px',
+                        border: '1px solid var(--glass-border)',
+                        maxHeight: '160px',
+                        overflowY: 'auto',
+                      }}
+                    >
+                      {updateResult.updateInfo.releaseNotes}
+                    </div>
+                  )}
+
+                  {/* Downloading Progress */}
+                  {isDownloadingUpdate ? (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
+                        <span>Downloading update from LAN server...</span>
+                        <strong style={{ color: 'var(--accent-primary)' }}>{downloadProgress}%</strong>
+                      </div>
+                      <div
+                        style={{
+                          width: '100%',
+                          height: '8px',
+                          background: 'rgba(255, 255, 255, 0.1)',
+                          borderRadius: '4px',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: `${downloadProgress}%`,
+                            height: '100%',
+                            background: 'var(--accent-primary)',
+                            transition: 'width 0.2s ease',
+                          }}
+                        />
+                      </div>
+                      <p style={{ fontSize: '11px', color: 'var(--text-dim)', marginTop: '6px' }}>
+                        App will automatically restart and launch the new version once download completes.
+                      </p>
+                    </div>
+                  ) : (
+                    <button
+                      className="btn-primary"
+                      onClick={handleDownloadAndApply}
+                      style={{ width: '100%', height: '38px', justifyContent: 'center', gap: '8px', fontSize: '13px' }}
+                    >
+                      <Download size={16} /> Download & Update Now
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Already Up-To-Date Result */}
+              {updateResult && !updateResult.hasUpdate && !updateResult.error && (
+                <div
+                  style={{
+                    background: 'rgba(16, 185, 129, 0.12)',
+                    border: '1px solid rgba(16, 185, 129, 0.35)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '14px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    color: '#6ee7b7',
+                    fontSize: '12px',
+                  }}
+                >
+                  <CheckCircle2 size={18} color="#10b981" style={{ flexShrink: 0 }} />
+                  <div>
+                    <strong>You are on the latest version!</strong>
+                    <div style={{ color: 'var(--text-dim)', fontSize: '11px', marginTop: '2px' }}>
+                      Version v{appVersion} is currently the newest release available on your LAN server.
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Helpful instructions footer */}
+              <div
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  border: '1px dashed var(--glass-border)',
+                  fontSize: '11px',
+                  color: 'var(--text-dim)',
+                  lineHeight: '1.6',
+                }}
+              >
+                💡 <strong>Admin Notice:</strong> To push updates across the network, run{' '}
+                <code style={{ color: 'var(--accent-primary)' }}>npm run updates:serve</code> on your host server (e.g. 192.168.1.6). All client machines will detect and offer updates on launch.
               </div>
             </div>
           )}

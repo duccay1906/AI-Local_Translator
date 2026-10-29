@@ -78,6 +78,16 @@ const electronAPI = {
   setOcrPinned: (pinned: boolean) => ipcRenderer.send('set-ocr-pinned', pinned),
   resizeOcrDialog: (width: number, height: number) => ipcRenderer.send('resize-ocr-dialog', { width, height }),
 
+  // LAN Auto-Updater
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  downloadAndApplyUpdate: (downloadUrl: string) => ipcRenderer.invoke('download-and-apply-update', downloadUrl),
+  onUpdateDownloadProgress: (callback: (pct: number) => void) => {
+    const listener = (_: any, pct: number) => callback(pct);
+    ipcRenderer.on('update-download-progress', listener);
+    return () => ipcRenderer.removeListener('update-download-progress', listener);
+  },
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+
   // Clipboard & Helpers
   copyToClipboard: (text: string) => ipcRenderer.send('copy-to-clipboard', text),
   readClipboard: () => ipcRenderer.invoke('read-clipboard'),

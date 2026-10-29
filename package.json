@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build && node -e \"require('fs').copyFileSync('build/icon.png', 'dist-electron/icon.png'); require('fs').copyFileSync('build/icon.ico', 'dist-electron/icon.ico'); require('fs').copyFileSync('electron/icon@4x.png', 'dist-electron/icon@4x.png');\"",
-    "package": "tsc && vite build && node -e \"require('fs').copyFileSync('build/icon.png', 'dist-electron/icon.png'); require('fs').copyFileSync('build/icon.ico', 'dist-electron/icon.ico'); require('fs').copyFileSync('electron/icon@4x.png', 'dist-electron/icon@4x.png');\" && electron-builder"
+    "package": "tsc && vite build && node -e \"require('fs').copyFileSync('build/icon.png', 'dist-electron/icon.png'); require('fs').copyFileSync('build/icon.ico', 'dist-electron/icon.ico'); require('fs').copyFileSync('electron/icon@4x.png', 'dist-electron/icon@4x.png');\" && electron-builder",
+    "updates:serve": "node scripts/serve-updates.js",
+    "updates:publish": "node scripts/publish-update.js"
   },
   "build": {
     "appId": "com.xavis.ailocaltranslator",

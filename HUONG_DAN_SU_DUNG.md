@@ -16,8 +16,9 @@
    - [Chế độ suy nghĩ AI (Tối ưu tốc độ dịch cho Gemma 4)](#43-chế-độ-ai-thinking--reasoning-mode)
    - [Tùy biến System Prompt & Lịch sử dịch](#44-tùy-biến-system-prompt--lịch-sử-dịch)
 5. [Mô hình Máy chủ GPU Mạng LAN (Dùng chung cho nhiều máy)](#5-triển-khai-máy-chủ-gpu-mạng-lan-nhiều-người-dùng)
-6. [Xử lý sự cố thường gặp (FAQ)](#6-xử-lý-sự-cố-thường-gặp-faq)
-7. [Hướng dẫn Biên dịch & Đóng gói Project (Build & Package)](#7-hướng-dẫn-biên-dịch--đóng-gói-project-build--package)
+8. [Cơ chế Cập nhật Tự động qua Mạng LAN (LAN Auto-Update)](#8-cơ-chế-cập-nhật-tự-động-qua-mạng-lan-lan-auto-update)
+9. [Xử lý sự cố thường gặp (FAQ)](#9-xử-lý-sự-cố-thường-gặp-faq)
+10. [Hướng dẫn Biên dịch & Đóng gói Project (Build & Package)](#10-hướng-dẫn-biên-dịch--đóng-gói-project-build--package)
 
 ---
 
@@ -141,7 +142,63 @@ Nếu cơ quan hoặc văn phòng của bạn có một máy tính trang bị ca
 
 ---
 
-## 6. Xử lý sự cố thường gặp (FAQ)
+## 6. Cơ chế Cập nhật Tự động qua Mạng LAN Nội bộ (LAN Auto-Update)
+
+Hệ thống cập nhật nội bộ cho phép toàn bộ máy tính nhân viên trong công ty tự động nhận bản cập nhật mới nhất từ máy chủ LAN mà **không cần kết nối Internet ra ngoài** và **không cần mua chứng chỉ bảo mật số đắt đỏ (Code Signing Certificate)**.
+
+### 6.1. Nguyên lý hoạt động
+1. **Máy chủ LAN (Host):** Lưu trữ file thực thi `.exe` phiên bản mới trong thư mục `updates/` và cung cấp file chỉ mục `version.json` qua cổng HTTP (mặc định cổng `8080`, ví dụ: `http://192.168.1.6:8080/updates`).
+2. **Máy người dùng (Client):** 
+   - Sau khi khởi động 8 giây, app tự động gửi truy vấn kiểm tra phiên bản trên máy chủ LAN trong nền.
+   - Nếu có phiên bản mới hơn phiên bản hiện tại, app sẽ bật thông báo kèm danh sách các tính năng mới (Changelog).
+   - Khi người dùng bấm **Update Now**: Ứng dụng tải file `.exe` mới về máy theo thanh tiến trình trực quan (0% - 100%).
+   - Tự động thay thế file cũ và khởi động lại vào phiên bản mới mà người dùng không cần làm thủ công.
+
+---
+
+### 6.2. Hướng dẫn Phát hành Bản cập nhật Mới (Phía Quản trị viên / Server)
+
+Khi có bản cập nhật mới hoặc tính năng mới:
+
+#### Bước 1: Đóng gói bản build mới
+Tại máy phát triển, nâng số phiên bản trong `package.json` (ví dụ `1.0.2`), sau đó chạy:
+```powershell
+npm run package
+```
+Lệnh này sẽ tạo ra file thực thi mới trong thư mục `release/` (ví dụ `AI Local Translator-1.0.2-portable.exe`).
+
+#### Bước 2: Phát hành vào thư mục cập nhật
+Chạy lệnh phát hành kèm ghi chú cập nhật:
+```powershell
+npm run updates:publish "Bổ sung tính năng Visual OCR và giao diện xem ảnh 1:1"
+```
+*Lệnh này sẽ tự động copy file `.exe` mới nhất vào thư mục `updates/` và cập nhật file `version.json`.*
+
+#### Bước 3: Khởi động Server cấp phát cập nhật trên máy chủ LAN
+Trên máy chủ nội bộ (ví dụ máy IP `192.168.1.6`), chạy lệnh:
+```powershell
+npm run updates:serve
+```
+Server sẽ chạy trên cổng `8080` (hoặc cổng cấu hình). Màn hình console sẽ in ra đường dẫn kiểm tra:
+`http://192.168.1.6:8080/updates/version.json`
+
+---
+
+### 6.3. Cấu hình & Sử dụng (Phía Máy người dùng / Client)
+
+1. Mở ứng dụng **AI Local Translator** trên máy trạm.
+2. Mở **Settings** → chọn tab **Software Updates**:
+   - **Current Version:** Hiển thị phiên bản app đang chạy trên máy (ví dụ `v1.0.1`).
+   - **Internal LAN Update Server:** Nhập địa chỉ máy chủ cập nhật (ví dụ: `http://192.168.1.6:8080/updates`).
+   - Tích chọn **Automatically check for updates on startup**.
+   - Bấm **Check for Updates**: App sẽ kết nối đến máy chủ LAN để kiểm tra.
+3. Khi có bản cập nhật mới:
+   - Thẻ thông báo nổi bật sẽ hiện thông tin phiên bản mới và nội dung cập nhật.
+   - Nhấn **Download & Update Now**. Quá trình tải sẽ hiển thị phần trăm tiến độ. Khi tải xong, ứng dụng tự động đóng lại, cập nhật file và khởi động lại bản mới.
+
+---
+
+## 7. Xử lý sự cố thường gặp (FAQ)
 
 ### ❓ 1. Ứng dụng báo lỗi "LM Studio Connection Error"?
 - **Nguyên nhân:** Server LM Studio chưa được bật, hoặc nhập sai đường dẫn URL.
@@ -165,22 +222,22 @@ Nếu cơ quan hoặc văn phòng của bạn có một máy tính trang bị ca
 
 ---
 
-## 7. Hướng dẫn Biên dịch & Đóng gói Project (Build & Package)
+## 8. Hướng dẫn Biên dịch & Đóng gói Project (Build & Package)
 
 Dành cho lập trình viên hoặc khi bạn muốn tùy chỉnh mã nguồn và tự đóng gói ra file `.exe` mới.
 
-### 7.1. Yêu cầu môi trường
+### 8.1. Yêu cầu môi trường
 - Đã cài đặt **Node.js** (Khuyên dùng bản LTS từ `v18` hoặc `v20` trở lên).
 - Trình quản lý gói **npm** (tự động có sẵn khi cài Node.js).
 
-### 7.2. Cài đặt các thư viện phụ thuộc (Chỉ chạy lần đầu)
+### 8.2. Cài đặt các thư viện phụ thuộc (Chỉ chạy lần đầu)
 Mở Terminal (PowerShell hoặc Command Prompt) tại thư mục gốc của project:
 ```powershell
 cd D:\Works\XavisTech\AI_Translate
 npm install
 ```
 
-### 7.3. Các lệnh Build & Chạy
+### 8.3. Các lệnh Build & Chạy
 
 #### A. Chạy chế độ phát triển (Development / Dev Mode)
 Dùng khi bạn muốn thử nghiệm, sửa đổi giao diện hoặc logic và xem kết quả cập nhật ngay lập tức (HMR - Hot Module Replacement):
@@ -202,7 +259,17 @@ npm run package
 
 > ⚠️ **Lưu ý quan trọng trước khi Package:** Nếu bạn đang bật sẵn bản app cũ dưới khay hệ thống, hãy nhấp chuột phải vào biểu tượng dưới **System Tray** → chọn **Exit App** trước khi chạy `npm run package` để tránh bị Windows khóa file `.exe` gây lỗi quyền truy cập.
 
-### 7.4. Kết quả đầu ra sau khi đóng gói (`release/`)
+#### D. Phục vụ máy chủ Cập nhật LAN & Phát hành bản mới
+- **Khởi động server cập nhật nội bộ:**
+  ```powershell
+  npm run updates:serve
+  ```
+- **Tự động đưa bản build mới vào thư mục cập nhật:**
+  ```powershell
+  npm run updates:publish "Ghi chú các thay đổi của bản cập nhật"
+  ```
+
+### 8.4. Kết quả đầu ra sau khi đóng gói (`release/`)
 Sau khi lệnh `npm run package` hoàn tất, các file thực thi hoàn chỉnh sẽ nằm trong thư mục:
 👉 `D:\Works\XavisTech\AI_Translate\release\`
 

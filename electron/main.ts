@@ -1,9 +1,10 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, screen, clipboard, Tray, Menu, nativeImage, desktopCapturer } from 'electron';
+import { app, BrowserWindow, globalShortcut, ipcMain, screen, clipboard, Tray, Menu, nativeImage, desktopCapturer, dialog } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { exec } from 'child_process';
 import { streamTranslation, fetchAvailableModels, translateBlocks } from './lmstudio';
 import { extractTextFromImage, extractTextAndBlocksFromImage, terminateOcrWorker } from './ocr';
+import { checkForUpdates, downloadUpdate, applyUpdateAndRestart } from './updater';
 import { AppSettings, TranslationHistoryItem, SnipSelectionResult } from '../src/types';
 
 let popupWindow: BrowserWindow | null = null;
@@ -96,6 +97,8 @@ const defaultSettings: AppSettings = {
   autoCopySelection: true,
   theme: 'dark',
   opacity: 0.92,
+  updateServerUrl: 'http://192.168.1.6:8080/updates',
+  autoCheckUpdate: true,
 };
 
 function loadSettings(): AppSettings {
@@ -404,6 +407,10 @@ function updateTrayMenu() {
       click: () => createSettingsWindow(),
     },
     {
+      label: '🔄 Check for Updates...',
+      click: () => createSettingsWindow(),
+    },
+    {
       label: '📌 Translate Selected Text',
       click: () => triggerTranslationFlow(),
     },
@@ -703,7 +710,37 @@ app.whenReady().then(() => {
       createPopupWindow();
     }
   });
+
+  // Background update check on LAN server after startup
+  if (activeSettings.autoCheckUpdate !== false) {
+    setTimeout(() => {
+      runBackgroundUpdateCheck();
+    }, 8000);
+  }
 });
+
+async function runBackgroundUpdateCheck() {
+  try {
+    const serverUrl = activeSettings.updateServerUrl || 'http://192.168.1.6:8080/updates';
+    const result = await checkForUpdates(serverUrl);
+    if (result.hasUpdate && result.updateInfo) {
+      const { response } = await dialog.showMessageBox({
+        type: 'question',
+        title: 'AI Local Translator - Update Available',
+        message: `A new version (v${result.updateInfo.version}) is available on your local network!`,
+        detail: `Current version: v${result.currentVersion}\n\nWhat's new in v${result.updateInfo.version}:\n${result.updateInfo.releaseNotes || 'Performance improvements and bug fixes.'}\n\nWould you like to open Settings to download and install this update?`,
+        buttons: ['Open Update Settings', 'Remind Later'],
+        defaultId: 0,
+        cancelId: 1,
+        icon: appIcon,
+      });
+
+      if (response === 0) {
+        createSettingsWindow();
+      }
+    }
+  } catch (e) {}
+}
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
@@ -746,6 +783,24 @@ ipcMain.handle('save-history', (_, history: TranslationHistoryItem[]) => {
 ipcMain.handle('clear-history', () => {
   saveHistoryToDisk([]);
   return true;
+});
+
+// Auto-Updater IPC
+ipcMain.handle('check-for-updates', async () => {
+  const serverUrl = activeSettings.updateServerUrl || 'http://192.168.1.6:8080/updates';
+  return await checkForUpdates(serverUrl);
+});
+
+ipcMain.handle('download-and-apply-update', async (event, downloadUrl: string) => {
+  const filePath = await downloadUpdate(downloadUrl, (pct) => {
+    event.sender.send('update-download-progress', pct);
+  });
+  applyUpdateAndRestart(filePath);
+  return true;
+});
+
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion();
 });
 
 ipcMain.on('close-popup', () => {

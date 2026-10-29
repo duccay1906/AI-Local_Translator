@@ -1,4 +1,4 @@
-import { AppSettings, TranslationHistoryItem, SnipCapturePayload, SnipSelectionResult, OcrStatePayload, VisualTranslationPayload } from '../types';
+import { AppSettings, TranslationHistoryItem, SnipCapturePayload, SnipSelectionResult, OcrStatePayload, VisualTranslationPayload, UpdateCheckResult } from '../types';
 
 declare global {
   interface Window {
@@ -189,6 +189,35 @@ export const api = {
     if (window.electronAPI) {
       return await window.electronAPI.clearHistory();
     }
+  },
+
+  // LAN Auto-Updater
+  checkForUpdates: async (): Promise<UpdateCheckResult> => {
+    if (window.electronAPI) {
+      return await window.electronAPI.checkForUpdates();
+    }
+    return { hasUpdate: false, currentVersion: '1.0.1' };
+  },
+
+  downloadAndApplyUpdate: async (downloadUrl: string): Promise<boolean> => {
+    if (window.electronAPI) {
+      return await window.electronAPI.downloadAndApplyUpdate(downloadUrl);
+    }
+    return false;
+  },
+
+  onUpdateDownloadProgress: (callback: (pct: number) => void) => {
+    if (window.electronAPI) {
+      return window.electronAPI.onUpdateDownloadProgress(callback);
+    }
+    return () => {};
+  },
+
+  getAppVersion: async (): Promise<string> => {
+    if (window.electronAPI) {
+      return await window.electronAPI.getAppVersion();
+    }
+    return '1.0.1';
   },
 
   openSettingsWindow: () => {
