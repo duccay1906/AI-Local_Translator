@@ -17,6 +17,7 @@
    - [Tùy biến System Prompt & Lịch sử dịch](#44-tùy-biến-system-prompt--lịch-sử-dịch)
 5. [Mô hình Máy chủ GPU Mạng LAN (Dùng chung cho nhiều máy)](#5-triển-khai-máy-chủ-gpu-mạng-lan-nhiều-người-dùng)
 6. [Xử lý sự cố thường gặp (FAQ)](#6-xử-lý-sự-cố-thường-gặp-faq)
+7. [Hướng dẫn Biên dịch & Đóng gói Project (Build & Package)](#7-hướng-dẫn-biên-dịch--đóng-gói-project-build--package)
 
 ---
 
@@ -149,3 +150,55 @@ Nếu cơ quan hoặc văn phòng của bạn có một máy tính trang bị ca
 
 ### ❓ 4. Làm sao để tắt ứng dụng hoàn toàn?
 - Nhấp chuột phải vào biểu tượng ứng dụng ở góc dưới bên phải màn hình (**System Tray** gần đồng hồ Windows) → chọn **❌ Exit App**.
+
+---
+
+## 7. Hướng dẫn Biên dịch & Đóng gói Project (Build & Package)
+
+Dành cho lập trình viên hoặc khi bạn muốn tùy chỉnh mã nguồn và tự đóng gói ra file `.exe` mới.
+
+### 7.1. Yêu cầu môi trường
+- Đã cài đặt **Node.js** (Khuyên dùng bản LTS từ `v18` hoặc `v20` trở lên).
+- Trình quản lý gói **npm** (tự động có sẵn khi cài Node.js).
+
+### 7.2. Cài đặt các thư viện phụ thuộc (Chỉ chạy lần đầu)
+Mở Terminal (PowerShell hoặc Command Prompt) tại thư mục gốc của project:
+```powershell
+cd D:\Works\XavisTech\AI_Translate
+npm install
+```
+
+### 7.3. Các lệnh Build & Chạy
+
+#### A. Chạy chế độ phát triển (Development / Dev Mode)
+Dùng khi bạn muốn thử nghiệm, sửa đổi giao diện hoặc logic và xem kết quả cập nhật ngay lập tức (HMR - Hot Module Replacement):
+```powershell
+npm run dev
+```
+
+#### B. Kiểm tra biên dịch mã nguồn (Build TypeCheck & Bundle)
+Lệnh này chạy kiểm tra kiểu TypeScript (`tsc`), đóng gói giao diện React qua Vite vào thư mục `dist/` và mã nguồn Electron vào `dist-electron/`:
+```powershell
+npm run build
+```
+
+#### C. Đóng gói ra file `.exe` hoàn chỉnh (Package / Release)
+Lệnh này sẽ tự động chạy toàn bộ quy trình biên dịch code và dùng `electron-builder` để đóng gói thành các file thực thi `.exe`:
+```powershell
+npm run package
+```
+
+> ⚠️ **Lưu ý quan trọng trước khi Package:** Nếu bạn đang bật sẵn bản app cũ dưới khay hệ thống, hãy nhấp chuột phải vào biểu tượng dưới **System Tray** → chọn **Exit App** trước khi chạy `npm run package` để tránh bị Windows khóa file `.exe` gây lỗi quyền truy cập.
+
+### 7.4. Kết quả đầu ra sau khi đóng gói (`release/`)
+Sau khi lệnh `npm run package` hoàn tất, các file thực thi hoàn chỉnh sẽ nằm trong thư mục:
+👉 `D:\Works\XavisTech\AI_Translate\release\`
+
+Gồm 2 phiên bản:
+1. **`AI Local Translator 1.0.1.exe` (Bản Portable - Khuyên dùng):**
+   - Chỉ gồm 1 file thực thi duy nhất (~96 MB).
+   - Copy sang máy tính khác là nhấp đúp chạy ngay, không cần cài đặt bất kỳ công cụ nào.
+   - Đã nhúng sẵn toàn bộ dữ liệu nhận diện chữ OCR offline (Tiếng Anh, Hàn, Nhật, Trung, Việt).
+2. **`AI Local Translator Setup 1.0.1.exe` (Bản cài đặt NSIS):**
+   - Bộ cài đặt chuẩn Windows (tự động tạo Shortcut trên Desktop và Start Menu).
+
