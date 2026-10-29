@@ -338,10 +338,14 @@ function hideOcrDialogWindow() {
   }
 }
 
-function createSettingsWindow() {
+function createSettingsWindow(initialTab?: string) {
+  const hash = initialTab ? `settings?tab=${initialTab}` : 'settings';
   if (settingsWindow) {
     if (settingsWindow.isMinimized()) settingsWindow.restore();
     settingsWindow.focus();
+    if (initialTab) {
+      settingsWindow.webContents.send('switch-settings-tab', initialTab);
+    }
     return;
   }
 
@@ -361,9 +365,9 @@ function createSettingsWindow() {
 
   const isDev = !app.isPackaged && process.env.VITE_DEV_SERVER_URL;
   if (isDev) {
-    settingsWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}#settings`);
+    settingsWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}#${hash}`);
   } else {
-    settingsWindow.loadFile(path.join(__dirname, '../dist/index.html'), { hash: 'settings' });
+    settingsWindow.loadFile(path.join(__dirname, '../dist/index.html'), { hash });
   }
 
   settingsWindow.once('ready-to-show', () => {
@@ -408,7 +412,7 @@ function updateTrayMenu() {
     },
     {
       label: '🔄 Check for Updates...',
-      click: () => createSettingsWindow(),
+      click: () => createSettingsWindow('updates'),
     },
     {
       label: '📌 Translate Selected Text',
@@ -736,7 +740,7 @@ async function runBackgroundUpdateCheck() {
       });
 
       if (response === 0) {
-        createSettingsWindow();
+        createSettingsWindow('updates');
       }
     }
   } catch (e) {}
@@ -838,8 +842,8 @@ ipcMain.on('resize-ocr-dialog', (_, { width, height }: { width: number; height: 
   }
 });
 
-ipcMain.on('open-settings-window', () => {
-  createSettingsWindow();
+ipcMain.on('open-settings-window', (_, tab?: string) => {
+  createSettingsWindow(tab);
 });
 
 ipcMain.on('start-ocr-capture', () => {

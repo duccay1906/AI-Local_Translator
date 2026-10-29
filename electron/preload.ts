@@ -98,7 +98,12 @@ const electronAPI = {
   clearHistory: () => ipcRenderer.invoke('clear-history'),
 
   // Open Settings Window
-  openSettingsWindow: () => ipcRenderer.send('open-settings-window'),
+  openSettingsWindow: (tab?: string) => ipcRenderer.send('open-settings-window', tab),
+  onSwitchSettingsTab: (callback: (tab: string) => void) => {
+    const listener = (_: any, tab: string) => callback(tab);
+    ipcRenderer.on('switch-settings-tab', listener);
+    return () => ipcRenderer.removeListener('switch-settings-tab', listener);
+  },
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);

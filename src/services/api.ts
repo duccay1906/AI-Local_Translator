@@ -220,9 +220,16 @@ export const api = {
     return '1.0.1';
   },
 
-  openSettingsWindow: () => {
+  openSettingsWindow: (tab?: string) => {
     if (window.electronAPI) {
-      window.electronAPI.openSettingsWindow();
+      window.electronAPI.openSettingsWindow(tab);
     }
+  },
+
+  onSwitchSettingsTab: (callback: (tab: string) => void) => {
+    if (window.electronAPI && (window.electronAPI as any).onSwitchSettingsTab) {
+      return (window.electronAPI as any).onSwitchSettingsTab(callback);
+    }
+    return () => {};
   },
 };

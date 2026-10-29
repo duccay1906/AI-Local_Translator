@@ -138,7 +138,15 @@ const HotkeyRecorder: React.FC<{ value: string; onChange: (shortcut: string) => 
 };
 
 export const SettingsModal: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'general' | 'prompt' | 'updates' | 'history'>('general');
+  const getInitialTab = (): 'general' | 'prompt' | 'updates' | 'history' => {
+    const hash = window.location.hash || '';
+    if (hash.includes('tab=updates') || hash.includes('#updates')) return 'updates';
+    if (hash.includes('tab=prompt') || hash.includes('#prompt')) return 'prompt';
+    if (hash.includes('tab=history') || hash.includes('#history')) return 'history';
+    return 'general';
+  };
+
+  const [activeTab, setActiveTab] = useState<'general' | 'prompt' | 'updates' | 'history'>(getInitialTab);
   const [settings, setSettings] = useState<AppSettings>({
     lmStudioUrl: 'http://192.168.1.6:1234',
     modelName: 'local-model',
@@ -192,8 +200,16 @@ export const SettingsModal: React.FC = () => {
       setDownloadProgress(pct);
     });
 
+    // Listen to tab switch request
+    const unsubscribeTabSwitch = api.onSwitchSettingsTab((tab) => {
+      if (['general', 'prompt', 'updates', 'history'].includes(tab)) {
+        setActiveTab(tab as any);
+      }
+    });
+
     return () => {
       unsubscribeProgress();
+      unsubscribeTabSwitch();
     };
   }, []);
 

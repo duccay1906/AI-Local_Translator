@@ -17,7 +17,8 @@ import {
   Eye,
   ScanText,
   Image as ImageIcon,
-  FileText
+  FileText,
+  ArrowUpCircle
 } from 'lucide-react';
 
 const SUPPORTED_LANGUAGES = [
@@ -49,6 +50,7 @@ export const FloatingPopup: React.FC = () => {
 
   const [popupOpacity, setPopupOpacity] = useState<number>(0.92);
   const [showOpacitySlider, setShowOpacitySlider] = useState<boolean>(false);
+  const [hasUpdate, setHasUpdate] = useState<boolean>(false);
 
   const targetLangRef = React.useRef<string>(targetLang);
 
@@ -58,6 +60,13 @@ export const FloatingPopup: React.FC = () => {
   }, [targetLang]);
 
   useEffect(() => {
+    // Check for updates quietly in background
+    api.checkForUpdates().then((res) => {
+      if (res.hasUpdate) {
+        setHasUpdate(true);
+      }
+    }).catch(() => {});
+
     // Load current settings ONCE on mount
     api.getSettings().then((res) => {
       setSettings(res);
@@ -368,6 +377,30 @@ export const FloatingPopup: React.FC = () => {
             style={{ width: '26px', height: '26px' }}
           >
             <Pin size={13} />
+          </button>
+
+          {/* Check for Updates Button */}
+          <button 
+            className="btn-icon"
+            onClick={() => api.openSettingsWindow('updates')}
+            title={hasUpdate ? "New Update Available! Click to update" : "Check for Updates"}
+            style={{ width: '26px', height: '26px', position: 'relative' }}
+          >
+            <ArrowUpCircle size={14} color={hasUpdate ? "#10b981" : "var(--accent-primary)"} />
+            {hasUpdate && (
+              <span 
+                style={{
+                  position: 'absolute',
+                  top: '3px',
+                  right: '3px',
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  backgroundColor: '#10b981',
+                  boxShadow: '0 0 6px #10b981',
+                }}
+              />
+            )}
           </button>
 
           {/* Settings Button */}
