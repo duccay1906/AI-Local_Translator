@@ -4,5 +4,5 @@
   "downloadUrl": "AI Local Translator Setup 1.0.2.exe",
   "installerUrl": "AI Local Translator Setup 1.0.2.exe",
   "portableUrl": "AI Local Translator 1.0.2.exe",
-  "releaseNotes": "Official Version 1.0.2 with LAN Auto Update"
+  "releaseNotes": "Fixed auto copy selection with execFile and Unicode path handling"
 }

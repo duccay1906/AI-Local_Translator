@@ -1,7 +1,7 @@
 import { app, BrowserWindow, globalShortcut, ipcMain, screen, clipboard, Tray, Menu, nativeImage, desktopCapturer, dialog } from 'electron';
 import path from 'path';
 import fs from 'fs';
-import { exec } from 'child_process';
+import { exec, execFile } from 'child_process';
 import { streamTranslation, fetchAvailableModels, translateBlocks } from './lmstudio';
 import { extractTextFromImage, extractTextAndBlocksFromImage, terminateOcrWorker } from './ocr';
 import { checkForUpdates, downloadUpdate, applyUpdateAndRestart } from './updater';
@@ -460,26 +460,58 @@ function updateTrayMenu() {
 }
 
 const vbsPath = path.join(app.getPath('userData'), 'send_copy.vbs');
+const fallbackVbsPath = path.join(app.getPath('temp'), 'send_copy.vbs');
 
 function initVbsHelper() {
+  const vbsContent = 'WScript.Sleep 150\r\nSet WshShell = WScript.CreateObject("WScript.Shell")\r\nWshShell.SendKeys "^c"';
   try {
-    // WScript.Sleep 220 waits for user to physically release Alt/Shift modifier keys before sending ^c
-    const vbsContent = 'WScript.Sleep 220\r\nSet WshShell = WScript.CreateObject("WScript.Shell")\r\nWshShell.SendKeys "^c"';
     fs.writeFileSync(vbsPath, vbsContent, 'utf-8');
   } catch (err) {
-    console.error('Failed to write VBS helper:', err);
+    console.error('Failed to write primary VBS helper:', err);
   }
+  try {
+    fs.writeFileSync(fallbackVbsPath, vbsContent, 'utf-8');
+  } catch (e) {}
 }
 
 async function captureSelectedText(): Promise<string> {
-  return new Promise((resolve) => {
-    exec(`cscript //nologo "${vbsPath}"`, () => {
-      setTimeout(() => {
-        const capturedText = clipboard.readText();
-        resolve(capturedText ? capturedText.trim() : '');
-      }, 100);
+  const previousText = clipboard.readText();
+  clipboard.clear();
+
+  const scriptToUse = fs.existsSync(vbsPath) ? vbsPath : fallbackVbsPath;
+
+  // Execute directly with execFile (bypasses cmd.exe to prevent Unicode/space path corruption)
+  await new Promise<void>((resolve) => {
+    execFile('cscript.exe', ['//nologo', scriptToUse], (error) => {
+      if (error) {
+        console.warn('cscript copy execution warning:', error.message);
+      }
+      resolve();
     });
   });
+
+  // Check if clipboard received new text
+  let captured = clipboard.readText();
+  if (captured && captured.trim()) {
+    return captured.trim();
+  }
+
+  // Poll for up to 250ms in case the target app (e.g. Word, heavy PDF, Chrome) takes time to write to clipboard
+  for (let i = 0; i < 5; i++) {
+    await new Promise((r) => setTimeout(r, 50));
+    captured = clipboard.readText();
+    if (captured && captured.trim()) {
+      return captured.trim();
+    }
+  }
+
+  // If no new text was captured, restore previous clipboard so user data is not lost
+  if (previousText && previousText.trim()) {
+    clipboard.writeText(previousText);
+    return previousText.trim();
+  }
+
+  return '';
 }
 
 function hidePopupWindow() {
