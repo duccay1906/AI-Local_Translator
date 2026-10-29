@@ -31,20 +31,21 @@ if (releaseFiles.length === 0) {
   process.exit(1);
 }
 
-// Sort by modification time descending to find latest build
-releaseFiles.sort((a, b) => {
-  const statA = fs.statSync(path.join(RELEASE_DIR, a));
-  const statB = fs.statSync(path.join(RELEASE_DIR, b));
-  return statB.mtimeMs - statA.mtimeMs;
-});
+// Find Installer and Portable builds
+const installerExe = releaseFiles.find((f) => /setup/i.test(f));
+const portableExe = releaseFiles.find((f) => !/setup/i.test(f));
 
-const latestExe = releaseFiles[0];
-const sourceExePath = path.join(RELEASE_DIR, latestExe);
-const destExePath = path.join(UPDATES_DIR, latestExe);
+if (installerExe) {
+  console.log(`📦 Found Installer build: ${installerExe}`);
+  fs.copyFileSync(path.join(RELEASE_DIR, installerExe), path.join(UPDATES_DIR, installerExe));
+}
 
-console.log(`📦 Found latest build: ${latestExe}`);
-console.log(`📋 Copying to updates directory...`);
-fs.copyFileSync(sourceExePath, destExePath);
+if (portableExe) {
+  console.log(`📦 Found Portable build:  ${portableExe}`);
+  fs.copyFileSync(path.join(RELEASE_DIR, portableExe), path.join(UPDATES_DIR, portableExe));
+}
+
+const primaryExe = installerExe || portableExe || releaseFiles[0];
 
 const pkg = require(path.join(ROOT_DIR, 'package.json'));
 const version = pkg.version || '1.0.1';
@@ -54,7 +55,9 @@ const releaseNotes = process.argv.slice(2).join(' ') ||
 const manifest = {
   version: version,
   releaseDate: new Date().toISOString().split('T')[0],
-  downloadUrl: latestExe,
+  downloadUrl: primaryExe,
+  installerUrl: installerExe || primaryExe,
+  portableUrl: portableExe || primaryExe,
   releaseNotes: releaseNotes,
 };
 
@@ -62,8 +65,9 @@ const manifestPath = path.join(UPDATES_DIR, 'version.json');
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
 
 console.log(`✅ Update published successfully!`);
-console.log(`   Version: ${version}`);
-console.log(`   File: ${latestExe} (${(fs.statSync(destExePath).size / 1024 / 1024).toFixed(2)} MB)`);
-console.log(`   Manifest written to: ${manifestPath}`);
+console.log(`   Version:       ${version}`);
+if (installerExe) console.log(`   Installer URL: ${installerExe}`);
+if (portableExe)  console.log(`   Portable URL:  ${portableExe}`);
+console.log(`   Manifest:      ${manifestPath}`);
 console.log(`\nTo start serving updates to the LAN, run:`);
 console.log(`   node scripts/serve-updates.js`);

@@ -84,12 +84,21 @@ export async function checkForUpdates(serverUrl: string): Promise<UpdateCheckRes
                 return;
               }
 
+              // Automatically pick the right binary based on running mode (Portable vs Installer)
+              const isPortable = !!process.env.PORTABLE_EXECUTABLE_FILE;
+              let selectedFile = info.downloadUrl;
+              if (isPortable && info.portableUrl) {
+                selectedFile = info.portableUrl;
+              } else if (!isPortable && info.installerUrl) {
+                selectedFile = info.installerUrl;
+              }
+
               // Resolve relative download URL if needed
-              let resolvedDownloadUrl = info.downloadUrl;
+              let resolvedDownloadUrl = selectedFile;
               if (resolvedDownloadUrl && !resolvedDownloadUrl.startsWith('http://') && !resolvedDownloadUrl.startsWith('https://')) {
                 resolvedDownloadUrl = `${cleanUrl}/${resolvedDownloadUrl.replace(/^\//, '')}`;
-                info.downloadUrl = resolvedDownloadUrl;
               }
+              info.downloadUrl = resolvedDownloadUrl;
 
               const hasUpdate = compareSemver(info.version, currentVersion) > 0;
               resolve({

@@ -25,6 +25,8 @@ export interface AppUpdateInfo {
   releaseDate?: string;
   releaseNotes?: string;
   downloadUrl: string;
+  installerUrl?: string;
+  portableUrl?: string;
   fileName?: string;
   fileSize?: number;
   sha256?: string;

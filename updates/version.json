@@ -1,6 +1,8 @@
 {
   "version": "1.0.1",
   "releaseDate": "2026-10-29",
-  "downloadUrl": "AI Local Translator 1.0.1.exe",
-  "releaseNotes": "Added Update button directly on popup toolbar and Settings"
+  "downloadUrl": "AI Local Translator Setup 1.0.1.exe",
+  "installerUrl": "AI Local Translator Setup 1.0.1.exe",
+  "portableUrl": "AI Local Translator 1.0.1.exe",
+  "releaseNotes": "Added auto-detection for Portable vs Installer updates"
 }
