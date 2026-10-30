@@ -160,6 +160,8 @@ const electronAPI = {
   // LAN Auto-Updater
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   downloadAndApplyUpdate: (downloadUrl: string) => ipcRenderer.invoke('download-and-apply-update', downloadUrl),
+  applyDownloadedUpdate: () => ipcRenderer.invoke('apply-downloaded-update'),
+  openUpdateFolder: () => ipcRenderer.invoke('open-update-folder'),
   onUpdateDownloadProgress: (callback: (pct: number) => void) => {
     const listener = (_: any, pct: number) => callback(pct);
     ipcRenderer.on('update-download-progress', listener);

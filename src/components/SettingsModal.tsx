@@ -18,7 +18,9 @@ import {
   Eye,
   ScanText,
   Download,
-  ArrowUpCircle
+  ArrowUpCircle,
+  FolderOpen,
+  ExternalLink
 } from 'lucide-react';
 import { OCR_LANGUAGE_OPTIONS } from './SnipOverlay';
 
@@ -173,7 +175,7 @@ export const SettingsModal: React.FC = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Auto-Update States
-  const [appVersion, setAppVersion] = useState<string>('1.0.8');
+  const [appVersion, setAppVersion] = useState<string>('1.0.9');
   const [isCheckingUpdate, setIsCheckingUpdate] = useState<boolean>(false);
   const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null);
   const [isDownloadingUpdate, setIsDownloadingUpdate] = useState<boolean>(false);
@@ -839,8 +841,8 @@ export const SettingsModal: React.FC = () => {
                   {isDownloadingUpdate ? (
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
-                        <span>Downloading update from LAN server...</span>
-                        <strong style={{ color: 'var(--accent-primary)' }}>{downloadProgress}%</strong>
+                        <span>{downloadProgress >= 100 ? '✅ Đã tải xong bản cập nhật 100%' : 'Downloading update from LAN server...'}</span>
+                        <strong style={{ color: downloadProgress >= 100 ? '#10b981' : 'var(--accent-primary)' }}>{downloadProgress}%</strong>
                       </div>
                       <div
                         style={{
@@ -855,14 +857,40 @@ export const SettingsModal: React.FC = () => {
                           style={{
                             width: `${downloadProgress}%`,
                             height: '100%',
-                            background: 'var(--accent-primary)',
+                            background: downloadProgress >= 100 ? '#10b981' : 'var(--accent-primary)',
                             transition: 'width 0.2s ease',
                           }}
                         />
                       </div>
-                      <p style={{ fontSize: '11px', color: 'var(--text-dim)', marginTop: '6px' }}>
-                        App will automatically restart and launch the new version once download completes.
-                      </p>
+
+                      {downloadProgress >= 100 ? (
+                        <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                            <button
+                              className="btn-primary"
+                              onClick={() => api.applyDownloadedUpdate()}
+                              style={{ flex: 2, height: '38px', justifyContent: 'center', gap: '8px', fontSize: '13px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
+                            >
+                              <Download size={16} /> Cài đặt & Khởi động lại ngay
+                            </button>
+                            <button
+                              className="btn-secondary"
+                              onClick={() => api.openUpdateFolder()}
+                              title="Mở thư mục chứa file bộ cài vừa tải"
+                              style={{ flex: 1, height: '38px', justifyContent: 'center', gap: '6px', fontSize: '12px' }}
+                            >
+                              <FolderOpen size={15} /> Mở thư mục
+                            </button>
+                          </div>
+                          <p style={{ fontSize: '11px', color: 'var(--text-dim)', margin: '2px 0 0 0' }}>
+                            Trình cài đặt đang được khởi chạy ngầm. Nếu sau 3 giây chưa thấy hiện cửa sổ cài đặt, vui lòng bấm nút xanh phía trên.
+                          </p>
+                        </div>
+                      ) : (
+                        <p style={{ fontSize: '11px', color: 'var(--text-dim)', marginTop: '6px' }}>
+                          App will automatically restart and launch the new version once download completes.
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <button

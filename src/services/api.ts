@@ -333,6 +333,20 @@ export const api = {
     return false;
   },
 
+  applyDownloadedUpdate: async (): Promise<boolean> => {
+    if (window.electronAPI) {
+      return await window.electronAPI.applyDownloadedUpdate();
+    }
+    return false;
+  },
+
+  openUpdateFolder: async (): Promise<boolean> => {
+    if (window.electronAPI) {
+      return await window.electronAPI.openUpdateFolder();
+    }
+    return false;
+  },
+
   onUpdateDownloadProgress: (callback: (pct: number) => void) => {
     if (window.electronAPI) {
       return window.electronAPI.onUpdateDownloadProgress(callback);

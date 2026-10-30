@@ -1,8 +1,8 @@
 {
-  "version": "1.0.8",
+  "version": "1.0.9",
   "releaseDate": "2026-10-30",
-  "downloadUrl": "AI_Local_Translator_Setup_1.0.8.exe",
-  "installerUrl": "AI_Local_Translator_Setup_1.0.8.exe",
-  "portableUrl": "AI_Local_Translator_1.0.8.exe",
-  "releaseNotes": "• System PATH Self-Healing: Guaranteed automatic recovery of Windows System32 and PowerShell in process.env.PATH, completely eliminating 'spawn cmd.exe ENOENT' on machines with damaged environment variables.\n• Safe Direct System Binaries: Switched all system automation (registry auto-start, wscript, and PowerShell helpers) to absolute system paths.\n• Tray & Settings Window Fix: Guaranteed Settings modal display when opened from the system tray menu or double click, fixing hidden window state.\n• Sub-route Navigation: Fixed routing for sub-tabs (#settings?tab=updates) to correctly render SettingsModal.\n• NSIS Auto-Updater File Lock Fix: Bundled custom NSIS process cleaner that automatically terminates any lingering application instances before unpacking, allowing seamless updates from v1.0.6 machines without blocking message boxes.\n• Multi-language Chat Text Replace (F10): Reliable text replacement and focus restoration for all target languages."
+  "downloadUrl": "AI_Local_Translator_Setup_1.0.9.exe",
+  "installerUrl": "AI_Local_Translator_Setup_1.0.9.exe",
+  "portableUrl": "AI_Local_Translator_1.0.9.exe",
+  "releaseNotes": "• Native Windows Shell Auto-Updater: Completely replaced background scripts with native Electron shell.openPath() via Windows Explorer, eliminating all Antivirus/EDR dropper blocks and PowerShell execution policy restrictions.\n• In-App Installation Controls: Added prominent 'Cài đặt & Khởi động lại ngay' and 'Mở thư mục' action buttons directly on the Updates interface when 100% download completes.\n• LAN Web Download Portal: Instant web landing page at http://192.168.1.12:8080/ for direct browser one-click downloads across LAN clients.\n• Tray & Settings Reliability: Seamless settings window focus and display across all tabs."
 }

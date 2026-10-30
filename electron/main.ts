@@ -4,7 +4,7 @@ import fs from 'fs';
 import { exec, execFile, spawn, ChildProcess } from 'child_process';
 import { streamTranslation, fetchAvailableModels, translateBlocks, streamVisionTranslation } from './lmstudio';
 import { extractTextFromImage, extractTextAndBlocksFromImage, terminateOcrWorker } from './ocr';
-import { checkForUpdates, downloadUpdate, applyUpdateAndRestart } from './updater';
+import { checkForUpdates, downloadUpdate, applyUpdateAndRestart, openUpdateFolder } from './updater';
 import { AppSettings, TranslationHistoryItem, SnipSelectionResult, ReplyTone, QuickReplyPayload } from '../src/types';
 
 // Ensure working directory is always local (prevents UNC path failures when Setup.exe is launched directly from a LAN share)
@@ -1574,8 +1574,17 @@ ipcMain.handle('download-and-apply-update', async (event, downloadUrl: string) =
   const filePath = await downloadUpdate(downloadUrl, (pct) => {
     event.sender.send('update-download-progress', pct);
   });
-  applyUpdateAndRestart(filePath);
+  // Auto-launch via native Windows Shell
+  await applyUpdateAndRestart(filePath);
   return true;
+});
+
+ipcMain.handle('apply-downloaded-update', async () => {
+  return await applyUpdateAndRestart();
+});
+
+ipcMain.handle('open-update-folder', () => {
+  return openUpdateFolder();
 });
 
 ipcMain.handle('get-app-version', () => {

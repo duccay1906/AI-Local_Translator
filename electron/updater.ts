@@ -1,4 +1,4 @@
-import { app } from 'electron';
+import { app, shell } from 'electron';
 import http from 'http';
 import https from 'https';
 import fs from 'fs';
@@ -8,6 +8,8 @@ import { AppUpdateInfo, UpdateCheckResult } from '../src/types';
 
 const SYSTEM_ROOT = process.env.SystemRoot || process.env.windir || 'C:\\Windows';
 const POWERSHELL_EXE = path.join(SYSTEM_ROOT, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+
+export let lastDownloadedFilePath: string | null = null;
 
 /**
  * Parses and compares two semver strings (e.g. "1.0.2" vs "1.0.1").
@@ -210,105 +212,59 @@ export async function downloadUpdate(
 
 /**
  * Applies the update and restarts the application:
- * - If running as Portable: Uses a hidden detached PowerShell script to wait for the old process
- *   to release file locks, overwrites the portable exe, and relaunches it.
- * - If running as Installer: Launches the installer in a hidden/background helper and quits.
+ * - Uses native Electron shell.openPath() to launch the installer via Windows ShellExecuteEx.
+ * - Runs interactively under the active desktop user session, displaying UAC cleanly without
+ *   being blocked by Antivirus/EDR dropper heuristics or PowerShell execution policies.
  */
-export function applyUpdateAndRestart(downloadedFilePath: string): void {
-  const tempDir = app.getPath('temp');
-  const portableExe = process.env.PORTABLE_EXECUTABLE_FILE;
+export async function applyUpdateAndRestart(downloadedFilePath?: string): Promise<boolean> {
+  const targetPath = downloadedFilePath || lastDownloadedFilePath;
+  if (!targetPath || !fs.existsSync(targetPath)) {
+    console.error('Cannot apply update: file path does not exist:', targetPath);
+    return false;
+  }
+  lastDownloadedFilePath = targetPath;
 
-  if (portableExe && fs.existsSync(portableExe)) {
-    // Portable executable update
-    const tempPs1 = path.join(tempDir, `apply_update_${Date.now()}.ps1`);
-    const escapedSource = downloadedFilePath.replace(/'/g, "''");
-    const escapedTarget = portableExe.replace(/'/g, "''");
+  // 1. Unblock file from Windows SmartScreen (Zone.Identifier stream removal)
+  try {
+    const unblockCmd = `Unblock-File -Path '${targetPath.replace(/'/g, "''")}' -ErrorAction SilentlyContinue`;
+    const psBin = fs.existsSync(POWERSHELL_EXE) ? POWERSHELL_EXE : 'powershell.exe';
+    spawn(psBin, ['-NoProfile', '-NonInteractive', '-Command', unblockCmd], { windowsHide: true });
+  } catch (e) {}
 
-    const scriptContent = `Start-Sleep -Seconds 1
-$source = '${escapedSource}'
-$target = '${escapedTarget}'
-$success = $false
-
-Unblock-File -Path $source -ErrorAction SilentlyContinue
-
-for ($i = 0; $i -lt 30; $i++) {
-    try {
-        Copy-Item -Path $source -Destination $target -Force -ErrorAction Stop
-        $success = $true
-        break
-    } catch {
-        Start-Sleep -Milliseconds 500
+  // 2. Launch directly via native Windows Shell
+  try {
+    const errMsg = await shell.openPath(targetPath);
+    if (!errMsg) {
+      setTimeout(() => {
+        app.quit();
+      }, 1000);
+      return true;
     }
-}
-
-if ($success) {
-    Unblock-File -Path $target -ErrorAction SilentlyContinue
-    Start-Process -FilePath $target -WorkingDirectory (Split-Path -Parent $target)
-}
-Remove-Item -Path $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
-`;
-
-    fs.writeFileSync(tempPs1, scriptContent, 'utf-8');
-
-    const powershellBin = fs.existsSync(POWERSHELL_EXE) ? POWERSHELL_EXE : 'powershell.exe';
-    const child = spawn(powershellBin, [
-      '-WindowStyle', 'Hidden',
-      '-NoProfile',
-      '-NonInteractive',
-      '-ExecutionPolicy', 'Bypass',
-      '-File', tempPs1,
-    ], {
-      cwd: tempDir,
-      detached: true,
-      stdio: 'ignore',
-      windowsHide: true,
-    });
-
-    child.on('error', (err) => {
-      console.error('Failed to spawn updater PowerShell process:', err);
-    });
-    child.unref();
-
-    app.quit();
-    return;
+    console.warn('shell.openPath warning:', errMsg);
+  } catch (err) {
+    console.error('shell.openPath execution error:', err);
   }
 
-  // Installer update (or normal exe)
-  const tempPs1 = path.join(tempDir, `apply_installer_${Date.now()}.ps1`);
-  const escapedInstaller = downloadedFilePath.replace(/'/g, "''");
+  // 3. Fallback: shell.openExternal (file:/// protocol)
+  try {
+    await shell.openExternal(`file:///${targetPath.replace(/\\/g, '/')}`);
+    setTimeout(() => {
+      app.quit();
+    }, 1200);
+    return true;
+  } catch (e) {
+    console.error('shell.openExternal fallback error:', e);
+  }
 
-  const scriptContent = `Start-Sleep -Seconds 2
-$installer = '${escapedInstaller}'
-Unblock-File -Path $installer -ErrorAction SilentlyContinue
+  return false;
+}
 
-# Ensure old instances are closed so NSIS doesn't block on file locks
-Get-Process -Name "AI Local Translator*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-Start-Sleep -Milliseconds 600
-
-Start-Process -FilePath $installer -ArgumentList "/S" -WorkingDirectory '${tempDir.replace(/'/g, "''")}'
-Remove-Item -Path $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
-`;
-
-  fs.writeFileSync(tempPs1, scriptContent, 'utf-8');
-
-  const powershellBin = fs.existsSync(POWERSHELL_EXE) ? POWERSHELL_EXE : 'powershell.exe';
-  const child = spawn(powershellBin, [
-    '-WindowStyle', 'Hidden',
-    '-NoProfile',
-    '-NonInteractive',
-    '-ExecutionPolicy', 'Bypass',
-    '-File', tempPs1,
-  ], {
-    cwd: tempDir,
-    detached: true,
-    stdio: 'ignore',
-    windowsHide: true,
-  });
-
-  child.on('error', (err) => {
-    console.error('Failed to spawn installer PowerShell process:', err);
-  });
-  child.unref();
-
-  app.quit();
+export function openUpdateFolder(targetFilePath?: string): boolean {
+  const fileToOpen = targetFilePath || lastDownloadedFilePath;
+  if (fileToOpen && fs.existsSync(fileToOpen)) {
+    shell.showItemInFolder(fileToOpen);
+    return true;
+  }
+  shell.openPath(app.getPath('temp'));
+  return true;
 }

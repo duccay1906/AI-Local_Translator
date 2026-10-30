@@ -76,6 +76,196 @@ const server = http.createServer((req, res) => {
     reqPath = '/version.json';
   }
 
+  // Check if browser requested the root page or download portal via HTML
+  const isHtmlRequest = (req.headers.accept && req.headers.accept.includes('text/html')) ||
+    reqPath === '/' || reqPath === '/index.html' || reqPath === '/download';
+
+  if (isHtmlRequest && (reqPath === '/' || reqPath === '/index.html' || reqPath === '/download' || reqPath === '')) {
+    let manifest = { version: '1.0.9', releaseNotes: 'Latest update', installerUrl: '', portableUrl: '' };
+    try {
+      if (fs.existsSync(defaultManifestPath)) {
+        manifest = JSON.parse(fs.readFileSync(defaultManifestPath, 'utf8'));
+      }
+    } catch (e) {}
+
+    const installerLink = manifest.installerUrl ? `/updates/${encodeURIComponent(manifest.installerUrl)}` : '#';
+    const portableLink = manifest.portableUrl ? `/updates/${encodeURIComponent(manifest.portableUrl)}` : '#';
+    const releaseNotesHtml = (manifest.releaseNotes || 'No notes.')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\n/g, '<br/>');
+
+    const html = `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Local Translator - Tải & Cập nhật Nội bộ</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #0b0f19;
+      color: #f1f5f9;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: rgba(18, 24, 38, 0.95);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 16px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 30px rgba(99, 102, 241, 0.15);
+      max-width: 580px;
+      width: 100%;
+      padding: 36px 32px;
+      backdrop-filter: blur(16px);
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .icon-box {
+      width: 52px;
+      height: 52px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.2;
+    }
+    .badge {
+      display: inline-block;
+      margin-top: 4px;
+      padding: 2px 10px;
+      border-radius: 20px;
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 14px 20px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      margin-top: 14px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 4px 15px rgba(99, 102, 241, 0.35);
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+    }
+    .btn-secondary {
+      background: rgba(30, 41, 59, 0.8);
+      color: #cbd5e1;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .btn-secondary:hover {
+      background: rgba(51, 65, 85, 0.9);
+      color: #fff;
+      transform: translateY(-1px);
+    }
+    .notes-box {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 14px;
+      margin-top: 24px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #94a3b8;
+    }
+    .notes-title {
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+    .footer {
+      margin-top: 24px;
+      font-size: 11px;
+      color: #64748b;
+      text-align: center;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="icon-box">✨</div>
+      <div>
+        <h1>AI Local Translator</h1>
+        <div class="badge">Phiên bản mới nhất: v${manifest.version}</div>
+      </div>
+    </div>
+
+    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 20px; line-height: 1.5;">
+      Tải và cập nhật trực tiếp cho các máy trong mạng LAN. Nhấn nút bên dưới để tải và nâng cấp ngay:
+    </p>
+
+    <a href="${installerLink}" class="btn btn-primary">
+      🚀 Tải Bộ Cài Đặt Setup (Khuyên dùng)
+    </a>
+
+    <a href="${portableLink}" class="btn btn-secondary">
+      📦 Tải Bản Portable (Không cần cài đặt)
+    </a>
+
+    <div class="notes-box">
+      <div class="notes-title">Thông tin cập nhật v${manifest.version}:</div>
+      <div>${releaseNotesHtml}</div>
+    </div>
+
+    <div class="footer">
+      Máy chủ LAN: <code>http://192.168.1.12:8080/updates</code><br/>
+      Phát triển bởi XavisTech • Cập nhật nội bộ ổn định
+    </div>
+  </div>
+</body>
+</html>`;
+
+    res.writeHead(200, {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Content-Length': Buffer.byteLength(html),
+      'Cache-Control': 'no-cache',
+    });
+    res.end(html);
+    return;
+  }
+
   if (reqPath === '/' || reqPath === '') {
     reqPath = '/version.json';
   }
