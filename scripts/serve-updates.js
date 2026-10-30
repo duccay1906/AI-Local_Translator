@@ -99,11 +99,16 @@ function serveFileWithRange(filePath, req, res) {
       return;
     }
 
+    const isStaticDoc = ext === '.html' || ext === '.css' || ext === '.js' || ext === '.json';
+    const cacheHeader = isStaticDoc ? 'no-cache, no-store, must-revalidate' : (ext === '.exe' ? 'public, max-age=86400' : 'public, max-age=3600');
+
     res.writeHead(200, {
       'Content-Length': stats.size,
       'Content-Type': contentType,
       'Accept-Ranges': 'bytes',
-      'Cache-Control': ext === '.json' ? 'no-cache' : 'public, max-age=3600',
+      'Cache-Control': cacheHeader,
+      'Pragma': isStaticDoc ? 'no-cache' : 'public',
+      'Expires': isStaticDoc ? '0' : '3600',
     });
 
     const fileStream = fs.createReadStream(filePath);

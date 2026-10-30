@@ -22,33 +22,22 @@ let currentLang = localStorage.getItem('ai_translator_web_lang') || 'vi';
 function initI18n() {
   setLanguage(currentLang);
 
-  const toggleBtn = document.getElementById('lang-toggle-btn');
-  const langMenu = document.getElementById('lang-menu');
-
-  if (toggleBtn && langMenu) {
-    toggleBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      langMenu.classList.toggle('open');
+  document.querySelectorAll('.lang-pill-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const selected = btn.getAttribute('data-lang');
+      if (selected) {
+        setLanguage(selected);
+      }
     });
-
-    document.addEventListener('click', () => {
-      langMenu.classList.remove('open');
-    });
-
-    langMenu.querySelectorAll('.lang-option').forEach((opt) => {
-      opt.addEventListener('click', () => {
-        const selected = opt.getAttribute('data-lang');
-        if (selected) {
-          setLanguage(selected);
-          langMenu.classList.remove('open');
-        }
-      });
-    });
-  }
+  });
 }
 
 function setLanguage(lang) {
-  if (typeof translations === 'undefined' || !translations[lang]) return;
+  if (typeof translations === 'undefined' || !translations[lang]) {
+    console.warn('Translations not loaded for lang:', lang);
+    return;
+  }
   currentLang = lang;
   localStorage.setItem('ai_translator_web_lang', lang);
   document.documentElement.lang = lang;
@@ -71,15 +60,9 @@ function setLanguage(lang) {
     }
   });
 
-  // Update Current Lang Text in Header
-  const currentLangText = document.getElementById('current-lang-text');
-  if (currentLangText) {
-    currentLangText.textContent = lang.toUpperCase();
-  }
-
-  // Update active state in dropdown
-  document.querySelectorAll('.lang-option').forEach((opt) => {
-    opt.classList.toggle('active', opt.getAttribute('data-lang') === lang);
+  // Update active state in segmented pill
+  document.querySelectorAll('.lang-pill-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
   });
 }
 

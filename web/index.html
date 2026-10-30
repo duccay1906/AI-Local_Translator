@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css?v=1.0.9.3">
 </head>
 <body>
 
@@ -32,31 +32,24 @@
 
       <nav>
         <ul class="nav-menu">
-          <li><a href="#hero" class="nav-link active" data-i18n="nav_intro">Giới thiệu</a></li>
+          <li><a href="#hero" class="nav-link active" data-i18n="nav_intro">Tổng quan</a></li>
           <li><a href="#features" class="nav-link" data-i18n="nav_features">Tính năng</a></li>
-          <li><a href="#install" class="nav-link" data-i18n="nav_install">Hướng dẫn cài đặt</a></li>
-          <li><a href="#manual" class="nav-link" data-i18n="nav_manual">Hướng dẫn sử dụng</a></li>
+          <li><a href="#install" class="nav-link" data-i18n="nav_install">Cài đặt</a></li>
+          <li><a href="#manual" class="nav-link" data-i18n="nav_manual">Hướng dẫn</a></li>
           <li><a href="#download" class="nav-link" data-i18n="nav_download">Tải về</a></li>
-          <li><a href="#faq" class="nav-link" data-i18n="nav_faq">Hỏi đáp & Xử lý lỗi</a></li>
+          <li><a href="#faq" class="nav-link" data-i18n="nav_faq">Hỗ trợ & FAQ</a></li>
         </ul>
       </nav>
 
       <div class="nav-actions">
-        <!-- Language Switcher Dropdown -->
-        <div class="lang-switch-dropdown">
-          <button class="lang-switch-btn" id="lang-toggle-btn" aria-label="Switch Language" title="Đổi ngôn ngữ / Change Language">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-            <span id="current-lang-text">VI</span>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        <!-- Segmented Language Control -->
+        <div class="lang-segmented-control" role="group" aria-label="Language selection">
+          <button type="button" class="lang-pill-btn active" data-lang="vi" title="Tiếng Việt">
+            <span class="flag-icon">🇻🇳</span> <span>VI</span>
           </button>
-          <div class="lang-menu" id="lang-menu">
-            <button class="lang-option active" data-lang="vi">
-              <span>🇻🇳</span> Tiếng Việt
-            </button>
-            <button class="lang-option" data-lang="en">
-              <span>🇬🇧</span> English
-            </button>
-          </div>
+          <button type="button" class="lang-pill-btn" data-lang="en" title="English">
+            <span class="flag-icon">🇬🇧</span> <span>EN</span>
+          </button>
         </div>
 
         <a href="#download" class="btn btn-primary btn-sm">
@@ -641,7 +634,7 @@
     </div>
   </footer>
 
-  <script src="/js/translations.js"></script>
-  <script src="/js/app.js"></script>
+  <script src="/js/translations.js?v=1.0.9.3"></script>
+  <script src="/js/app.js?v=1.0.9.3"></script>
 </body>
 </html>

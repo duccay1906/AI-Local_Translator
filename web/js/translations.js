@@ -6,12 +6,12 @@
 const translations = {
   vi: {
     // Navigation
-    nav_intro: "Giới thiệu",
+    nav_intro: "Tổng quan",
     nav_features: "Tính năng",
-    nav_install: "Hướng dẫn cài đặt",
-    nav_manual: "Hướng dẫn sử dụng",
+    nav_install: "Cài đặt",
+    nav_manual: "Hướng dẫn",
     nav_download: "Tải về",
-    nav_faq: "Hỏi đáp & Xử lý lỗi",
+    nav_faq: "Hỗ trợ & FAQ",
 
     // Hero Section
     hero_status: 'Máy chủ LAN sẵn sàng: <strong>192.168.1.12:8080</strong>',
@@ -171,7 +171,7 @@ const translations = {
     nav_intro: "Overview",
     nav_features: "Features",
     nav_install: "Installation",
-    nav_manual: "User Manual",
+    nav_manual: "Manual",
     nav_download: "Download",
     nav_faq: "FAQ & Support",
 
