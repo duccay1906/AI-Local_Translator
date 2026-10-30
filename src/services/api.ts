@@ -129,6 +129,13 @@ export const api = {
     }
   },
 
+  getLatestVisionSnippet: async (): Promise<{ imagePreview: string; targetLanguage: string } | null> => {
+    if (window.electronAPI && (window.electronAPI as any).getLatestVisionSnippet) {
+      return await (window.electronAPI as any).getLatestVisionSnippet();
+    }
+    return null;
+  },
+
   onOcrStateChange: (callback: (data: OcrStatePayload) => void) => {
     if (window.electronAPI) {
       return window.electronAPI.onOcrStateChange(callback);

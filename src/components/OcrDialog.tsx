@@ -61,6 +61,15 @@ export const OcrDialog: React.FC = () => {
 
   // Setup IPC listeners
   useEffect(() => {
+    // If a snippet was already captured before component mounted (first-time launch)
+    api.getLatestVisionSnippet().then((data) => {
+      if (data?.imagePreview) {
+        setImagePreview((prev) => prev || data.imagePreview);
+        if (data.targetLanguage) setTargetLanguage(data.targetLanguage);
+        setIsStreaming(true);
+      }
+    });
+
     // 1. New Multimodal Vision Events
     const cleanupInit = api.onInitVisionTranslate((data) => {
       setImagePreview(data.imagePreview);

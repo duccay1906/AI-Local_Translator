@@ -61,6 +61,9 @@ const electronAPI = {
   cancelVisionTranslation: () => {
     ipcRenderer.send('cancel-vision-translation');
   },
+  getLatestVisionSnippet: () => {
+    return ipcRenderer.invoke('get-latest-vision-snippet');
+  },
 
   // OCR Status & Snipping Overlay IPC
   onOcrStateChange: (callback: (data: { status: 'processing' | 'done' | 'error'; message?: string; imagePreview?: string }) => void) => {

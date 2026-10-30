@@ -1,8 +1,8 @@
 {
-  "version": "1.0.4",
+  "version": "1.0.5",
   "releaseDate": "2026-10-30",
-  "downloadUrl": "AI_Local_Translator_Setup_1.0.4.exe",
-  "installerUrl": "AI_Local_Translator_Setup_1.0.4.exe",
-  "portableUrl": "AI_Local_Translator_1.0.4.exe",
-  "releaseNotes": "Full Rich Markdown Preview with chat badge highlights and streaming real-time rendering"
+  "downloadUrl": "AI_Local_Translator_Setup_1.0.5.exe",
+  "installerUrl": "AI_Local_Translator_Setup_1.0.5.exe",
+  "portableUrl": "AI_Local_Translator_1.0.5.exe",
+  "releaseNotes": "Fix cold-boot F9 image preview race condition by pre-warming window and adding dual-channel sync"
 }

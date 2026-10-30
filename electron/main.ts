@@ -16,6 +16,7 @@ let tray: Tray | null = null;
 let currentAbortController: { abort: () => void } | null = null;
 let currentVisionAbortController: { abort: () => void } | null = null;
 let lastCapturedScreen: Electron.NativeImage | null = null;
+let lastVisionSnippet: { imagePreview: string; targetLanguage: string } | null = null;
 
 const TRAY_ICON_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAIhSURBVHgB7VdNSgMxEE5CQRBEFAURF0IXLlzozkV6A0HQrVt3XkBw57gRF64giLhzEUEEwZ3ozGfSznTa3el0MplJvvC9N/OStvPhfV+j0aitpuksmqYLWJaV9i1d/2/v/RFFUSNJkiBv3uLzeDxe961f7oF4f3ccZ9cwt2mapq0bHMe5H9f2913A8zzj1fO8T3XnOI42DEPtdzW1Wq1aqvPj+n0+n7e8yN7vd9s/Dk3TNHWapla92u/3q+12e1o0mUyo67pWr9er1WpllUql3+/1eu3b7bZbLpcuTdNM4zj2eL4v2vUie55nfV9b12q1qlQq2Xg8tmazuS63222r1Wp6vV623W51s9nYu9f3/a+tVutv6z8N/C+aTqdH2/ZyuVRv1+t1bTQalTqdTqVer/9N90d/v98fyul00qXxeFwq/qJ6vV6rUqm0qFar/crL5VIJISLqdruVGo1GpWq1+qu7TqdTy3U9r1Yr+z/0arWyaDTq1Wq1tFqt/uo8l0slhGihNpvNWvb9ft+Gw+HS5w73+32H8/lcs+Vyaf1+n3ndzGazaavVqq3X66W73e6w+w3/6/5v96vxeGy3281m8/ldj8ej9fs9m80d8z8fVqvV0s1mwzybz2d5f/Rer2dr3jFf9ffo3/t1/6u+t9tNlcvl8p89P/F8Pi+t12ur67odf1mSJD6K12p+/wT8e8Q/y89X4y911EwAAAAASUVORK5CYII=';
 
@@ -723,6 +724,7 @@ app.whenReady().then(() => {
   initVbsHelper();
   createPopupWindow();
   createSnipWindow();
+  createOcrDialogWindow();
   if (!isHiddenBoot) {
     createSettingsWindow();
   }
@@ -974,12 +976,28 @@ ipcMain.on('complete-snip-selection', async (_, payload: SnipSelectionResult) =>
   ocrDialogWindow!.focus();
 
   const targetLang = activeSettings.targetLanguage || 'Vietnamese';
-
-  // Initialize Vision Dialog with original image preview
-  ocrDialogWindow?.webContents.send('init-vision-translate', {
+  lastVisionSnippet = {
     imagePreview: croppedImageDataUrl,
     targetLanguage: targetLang,
-  });
+  };
+
+  // Initialize Vision Dialog with original image preview (guarantee delivery even on cold boot)
+  const sendInitEvent = () => {
+    if (ocrDialogWindow && !ocrDialogWindow.isDestroyed()) {
+      ocrDialogWindow.webContents.send('init-vision-translate', {
+        imagePreview: croppedImageDataUrl,
+        targetLanguage: targetLang,
+      });
+    }
+  };
+
+  if (ocrDialogWindow!.webContents.isLoading()) {
+    ocrDialogWindow!.webContents.once('did-finish-load', () => {
+      sendInitEvent();
+    });
+  } else {
+    sendInitEvent();
+  }
 
   // Cancel any ongoing vision translation
   if (currentVisionAbortController) {
@@ -1072,6 +1090,10 @@ ipcMain.on('cancel-vision-translation', () => {
     currentVisionAbortController.abort();
     currentVisionAbortController = null;
   }
+});
+
+ipcMain.handle('get-latest-vision-snippet', () => {
+  return lastVisionSnippet;
 });
 
 ipcMain.on('start-translation', async (event, { text, targetLang }: { text: string; targetLang?: string }) => {
