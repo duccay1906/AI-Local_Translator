@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { marked } from 'marked';
 import { api } from '../services/api';
 import { AppSettings, VisualTranslationPayload } from '../types';
 import { VisualTranslateViewer } from './VisualTranslateViewer';
@@ -551,7 +552,10 @@ export const FloatingPopup: React.FC = () => {
                       <span>{ocrStatus}</span>
                     </div>
                   ) : translatedText ? (
-                    translatedText
+                    <div
+                      className="markdown-preview selectable"
+                      dangerouslySetInnerHTML={{ __html: marked.parse(translatedText) as string }}
+                    />
                   ) : isLoading ? (
                     <span style={{ color: 'var(--text-dim)', fontStyle: 'italic' }}>Translating, please wait...</span>
                   ) : (

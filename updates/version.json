@@ -4,5 +4,5 @@
   "downloadUrl": "AI_Local_Translator_Setup_1.0.4.exe",
   "installerUrl": "AI_Local_Translator_Setup_1.0.4.exe",
   "portableUrl": "AI_Local_Translator_1.0.4.exe",
-  "releaseNotes": "Fix LAN auto-update URL encoding and support seamless background install"
+  "releaseNotes": "Full Rich Markdown Preview with chat badge highlights and streaming real-time rendering"
 }

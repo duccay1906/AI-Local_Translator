@@ -19,7 +19,13 @@ import {
   MessageSquare,
   Move,
 } from 'lucide-react';
+import { marked } from 'marked';
 import { api } from '../services/api';
+
+marked.setOptions({
+  gfm: true,
+  breaks: true,
+});
 
 const SUPPORTED_LANGUAGES = [
   'Vietnamese',
@@ -321,76 +327,32 @@ export const OcrDialog: React.FC = () => {
     });
   };
 
-  // Render nicely formatted conversation / markdown text
-  const renderFormattedText = (rawText: string) => {
+  // Render Rich Markdown Preview with enhanced conversation badges
+  const renderRichMarkdown = (rawText: string) => {
     if (!rawText) return null;
 
-    const lines = rawText.split('\n');
-    return lines.map((line, idx) => {
-      const trimmed = line.trim();
+    // Enhance chat lines before markdown parsing:
+    // - Format `[Sender Name]` into styled chat badge
+    // - Format `(Time: ...)` or `(Thời gian: ...)` into styled timestamp badge
+    const preprocessed = rawText
+      .replace(/^\[([^\]\n]+)\]$/gm, '<div class="chat-speaker-badge">💬 <strong>$1</strong></div>')
+      .replace(/^\(((?:Thời gian|Time|AM|PM|sáng|chiều|tối|\d{1,2}:\d{2})[^)\n]*)\)$/gim, '<span class="chat-timestamp-badge">⏱️ $1</span>');
 
-      // Speaker line: e.g. [Jay (PARK Jong-Ho)] or [Người phản hồi]
-      if (/^\[.+\]$/.test(trimmed)) {
-        return (
-          <div
-            key={idx}
-            style={{
-              fontWeight: 700,
-              color: '#818cf8',
-              fontSize: '13px',
-              marginTop: idx > 0 ? '14px' : '0px',
-              marginBottom: '4px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            <MessageSquare size={13} color="#818cf8" />
-            <span>{trimmed}</span>
-          </div>
-        );
-      }
-
-      // Timestamp line: e.g. (Thời gian: 5:20 chiều) or (5:31 chiều)
-      if (/^\(.*\)$/.test(trimmed) && (trimmed.includes('Thời gian') || trimmed.includes('chiều') || trimmed.includes('sáng') || trimmed.includes(':'))) {
-        return (
-          <div
-            key={idx}
-            style={{
-              fontSize: '11px',
-              color: 'var(--text-dim)',
-              fontStyle: 'italic',
-              marginBottom: '8px',
-              paddingLeft: '2px',
-            }}
-          >
-            {trimmed}
-          </div>
-        );
-      }
-
-      // Empty separator line
-      if (!trimmed) {
-        return <div key={idx} style={{ height: '8px' }} />;
-      }
-
-      // Regular paragraph or dialog text
+    try {
+      const html = marked.parse(preprocessed) as string;
       return (
         <div
-          key={idx}
-          style={{
-            fontSize: '13px',
-            lineHeight: '1.65',
-            color: 'var(--text-main)',
-            marginBottom: '4px',
-            userSelect: 'text',
-            WebkitUserSelect: 'text',
-          }}
-        >
-          {line}
+          className="markdown-preview selectable"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      );
+    } catch {
+      return (
+        <div className="selectable" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.65' }}>
+          {rawText}
         </div>
       );
-    });
+    }
   };
 
   const wordCount = translatedText.trim() ? translatedText.trim().split(/\s+/).length : 0;
@@ -793,7 +755,7 @@ export const OcrDialog: React.FC = () => {
             {/* Formatted Translated Text */}
             {translatedText ? (
               <div style={{ flex: 1 }}>
-                {renderFormattedText(translatedText)}
+                {renderRichMarkdown(translatedText)}
                 {isStreaming && (
                   <span
                     style={{
