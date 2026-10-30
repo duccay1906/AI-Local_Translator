@@ -1,8 +1,8 @@
 {
-  "version": "1.0.2",
-  "releaseDate": "2026-10-29",
-  "downloadUrl": "AI Local Translator Setup 1.0.2.exe",
-  "installerUrl": "AI Local Translator Setup 1.0.2.exe",
-  "portableUrl": "AI Local Translator 1.0.2.exe",
-  "releaseNotes": "Fixed auto copy selection with execFile and Unicode path handling"
+  "version": "1.0.3",
+  "releaseDate": "2026-10-30",
+  "downloadUrl": "AI Local Translator Setup 1.0.3.exe",
+  "installerUrl": "AI Local Translator Setup 1.0.3.exe",
+  "portableUrl": "AI Local Translator 1.0.3.exe",
+  "releaseNotes": "Nang cap tinh nang dich anh bang mo hinh Vision AI da phuong tien (khong dung OCR, hien thi song song anh goc va ban dich Markdown)"
 }

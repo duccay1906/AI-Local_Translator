@@ -34,6 +34,34 @@ const electronAPI = {
     return () => ipcRenderer.removeListener('trigger-visual-translate', listener);
   },
 
+  // Vision AI Translation Events
+  onInitVisionTranslate: (callback: (data: { imagePreview: string; targetLanguage: string }) => void) => {
+    const listener = (_: any, data: any) => callback(data);
+    ipcRenderer.on('init-vision-translate', listener);
+    return () => ipcRenderer.removeListener('init-vision-translate', listener);
+  },
+  onVisionTranslateChunk: (callback: (chunk: string) => void) => {
+    const listener = (_: any, chunk: string) => callback(chunk);
+    ipcRenderer.on('vision-translate-chunk', listener);
+    return () => ipcRenderer.removeListener('vision-translate-chunk', listener);
+  },
+  onVisionTranslateComplete: (callback: (fullText: string) => void) => {
+    const listener = (_: any, fullText: string) => callback(fullText);
+    ipcRenderer.on('vision-translate-complete', listener);
+    return () => ipcRenderer.removeListener('vision-translate-complete', listener);
+  },
+  onVisionTranslateError: (callback: (error: string) => void) => {
+    const listener = (_: any, error: string) => callback(error);
+    ipcRenderer.on('vision-translate-error', listener);
+    return () => ipcRenderer.removeListener('vision-translate-error', listener);
+  },
+  startVisionTranslation: (data: { imageBase64: string; targetLang?: string }) => {
+    ipcRenderer.send('start-vision-translation', data);
+  },
+  cancelVisionTranslation: () => {
+    ipcRenderer.send('cancel-vision-translation');
+  },
+
   // OCR Status & Snipping Overlay IPC
   onOcrStateChange: (callback: (data: { status: 'processing' | 'done' | 'error'; message?: string; imagePreview?: string }) => void) => {
     const listener = (_: any, data: { status: 'processing' | 'done' | 'error'; message?: string; imagePreview?: string }) => callback(data);

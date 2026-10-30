@@ -2,7 +2,7 @@ import { app, BrowserWindow, globalShortcut, ipcMain, screen, clipboard, Tray, M
 import path from 'path';
 import fs from 'fs';
 import { exec, execFile } from 'child_process';
-import { streamTranslation, fetchAvailableModels, translateBlocks } from './lmstudio';
+import { streamTranslation, fetchAvailableModels, translateBlocks, streamVisionTranslation } from './lmstudio';
 import { extractTextFromImage, extractTextAndBlocksFromImage, terminateOcrWorker } from './ocr';
 import { checkForUpdates, downloadUpdate, applyUpdateAndRestart } from './updater';
 import { AppSettings, TranslationHistoryItem, SnipSelectionResult } from '../src/types';
@@ -14,6 +14,7 @@ let snipWindow: BrowserWindow | null = null;
 let ocrDialogWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let currentAbortController: { abort: () => void } | null = null;
+let currentVisionAbortController: { abort: () => void } | null = null;
 let lastCapturedScreen: Electron.NativeImage | null = null;
 
 const TRAY_ICON_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAIhSURBVHgB7VdNSgMxEE5CQRBEFAURF0IXLlzozkV6A0HQrVt3XkBw57gRF64giLhzEUEEwZ3ozGfSznTa3el0MplJvvC9N/OStvPhfV+j0aitpuksmqYLWJaV9i1d/2/v/RFFUSNJkiBv3uLzeDxe961f7oF4f3ccZ9cwt2mapq0bHMe5H9f2913A8zzj1fO8T3XnOI42DEPtdzW1Wq1aqvPj+n0+n7e8yN7vd9s/Dk3TNHWapla92u/3q+12e1o0mUyo67pWr9er1WpllUql3+/1eu3b7bZbLpcuTdNM4zj2eL4v2vUie55nfV9b12q1qlQq2Xg8tmazuS63222r1Wp6vV623W51s9nYu9f3/a+tVutv6z8N/C+aTqdH2/ZyuVRv1+t1bTQalTqdTqVer/9N90d/v98fyul00qXxeFwq/qJ6vV6rUqm0qFar/crL5VIJISLqdruVGo1GpWq1+qu7TqdTy3U9r1Yr+z/0arWyaDTq1Wq1tFqt/uo8l0slhGihNpvNWvb9ft+Gw+HS5w73+32H8/lcs+Vyaf1+n3ndzGazaavVqq3X66W73e6w+w3/6/5v96vxeGy3281m8/ldj8ej9fs9m80d8z8fVqvV0s1mwzybz2d5f/Rer2dr3jFf9ffo3/t1/6u+t9tNlcvl8p89P/F8Pi+t12ur67odf1mSJD6K12p+/wT8e8Q/y89X4y911EwAAAAASUVORK5CYII=';
@@ -946,13 +947,9 @@ ipcMain.on('complete-snip-selection', async (_, payload: SnipSelectionResult) =>
   const maxWidth = Math.round(workArea.width * 0.92);
   const maxHeight = Math.round(workArea.height * 0.90);
 
-  // Minimum size guaranteed to fit all header toolbar buttons without clipping
-  const minWinW = Math.min(maxWidth, 800);
-  const minWinH = Math.min(maxHeight, 480);
-
-  // Target window width and height to comfortably display image at 1:1 scale + UI frame
-  const targetWinW = Math.max(minWinW, Math.min(maxWidth, cropW + 40));
-  const targetWinH = Math.max(minWinH, Math.min(maxHeight, cropH + 100));
+  // Window dimensions for split-view Vision Translator (Image left, AI Translation right)
+  const targetWinW = Math.max(900, Math.min(maxWidth, Math.round(cropW * 1.1) + 480));
+  const targetWinH = Math.max(540, Math.min(maxHeight, Math.round(cropH * 1.1) + 120));
 
   let posX = Math.round(screenX + (cropW - targetWinW) / 2);
   let posY = Math.round(screenY + (cropH - targetWinH) / 2);
@@ -976,86 +973,104 @@ ipcMain.on('complete-snip-selection', async (_, payload: SnipSelectionResult) =>
   ocrDialogWindow!.show();
   ocrDialogWindow!.focus();
 
-  ocrDialogWindow?.webContents.send('ocr-state-change', {
-    status: 'processing',
-    message: 'Extracting text from image (OCR)...',
+  const targetLang = activeSettings.targetLanguage || 'Vietnamese';
+
+  // Initialize Vision Dialog with original image preview
+  ocrDialogWindow?.webContents.send('init-vision-translate', {
     imagePreview: croppedImageDataUrl,
+    targetLanguage: targetLang,
   });
 
+  // Cancel any ongoing vision translation
+  if (currentVisionAbortController) {
+    currentVisionAbortController.abort();
+    currentVisionAbortController = null;
+  }
+
   try {
-    const ocrResult = await extractTextAndBlocksFromImage(
-      croppedImageDataUrl,
-      ocrLanguage || activeSettings.ocrLanguage || 'auto',
-      (progressMsg) => {
-        ocrDialogWindow?.webContents.send('ocr-state-change', {
-          status: 'processing',
-          message: progressMsg,
-          imagePreview: croppedImageDataUrl,
-        });
-      }
-    );
-
-    const { fullText, blocks } = ocrResult;
-
-    if (!fullText || !fullText.trim() || blocks.length === 0) {
-      ocrDialogWindow?.webContents.send('ocr-state-change', {
-        status: 'error',
-        message: 'No readable text found in the selected area. Try selecting a clearer region or switching the OCR language.',
-        imagePreview: croppedImageDataUrl,
-      });
-      return;
-    }
-
-    const targetLang = activeSettings.targetLanguage || 'Vietnamese';
-    ocrDialogWindow?.webContents.send('ocr-state-change', {
-      status: 'processing',
-      message: `Translating ${blocks.length} text region${blocks.length > 1 ? 's' : ''} with LM Studio...`,
-      imagePreview: croppedImageDataUrl,
-    });
-
-    const visualBlocks = await translateBlocks({
+    currentVisionAbortController = await streamVisionTranslation({
       baseUrl: activeSettings.lmStudioUrl,
       model: activeSettings.modelName,
-      blocks,
+      imageBase64: croppedImageDataUrl,
       targetLanguage: targetLang,
       reasoningEffort: activeSettings.reasoningEffort || 'none',
       systemPromptTemplate: activeSettings.systemPrompt,
-    });
-
-    const fullTranslatedText = visualBlocks.map((b) => b.translatedText).join('\n\n');
-
-    ocrDialogWindow?.webContents.send('ocr-state-change', {
-      status: 'done',
-      imagePreview: croppedImageDataUrl,
-    });
-
-    // Send visual translation event to dedicated OCR Dialog
-    ocrDialogWindow?.webContents.send('trigger-visual-translate', {
-      imagePreview: croppedImageDataUrl,
-      blocks: visualBlocks,
-      fullOriginalText: fullText,
-      fullTranslatedText,
-      targetLanguage: targetLang,
-    });
-
-    // Save to history
-    const history = loadHistory();
-    saveHistoryToDisk([
-      {
-        id: Date.now().toString(),
-        originalText: fullText,
-        translatedText: fullTranslatedText,
-        targetLanguage: targetLang,
-        timestamp: Date.now(),
+      onChunk: (chunk) => {
+        ocrDialogWindow?.webContents.send('vision-translate-chunk', chunk);
       },
-      ...history,
-    ]);
-  } catch (err: any) {
-    ocrDialogWindow?.webContents.send('ocr-state-change', {
-      status: 'error',
-      message: err.message || 'Error extracting text from image.',
-      imagePreview: croppedImageDataUrl,
+      onComplete: (fullText) => {
+        ocrDialogWindow?.webContents.send('vision-translate-complete', fullText);
+
+        // Save translation to history
+        const history = loadHistory();
+        saveHistoryToDisk([
+          {
+            id: Date.now().toString(),
+            originalText: '[Image Snipped Translation]',
+            translatedText: fullText,
+            targetLanguage: targetLang,
+            timestamp: Date.now(),
+          },
+          ...history,
+        ]);
+      },
+      onError: (err) => {
+        ocrDialogWindow?.webContents.send('vision-translate-error', err.message || 'Vision translation failed');
+      },
     });
+  } catch (err: any) {
+    ocrDialogWindow?.webContents.send('vision-translate-error', err.message || 'Could not connect to LM Studio Vision model');
+  }
+});
+
+// IPC handlers for Vision Translation controls (Retry, Language change, Cancel)
+ipcMain.on('start-vision-translation', async (event, { imageBase64, targetLang }: { imageBase64: string; targetLang?: string }) => {
+  if (currentVisionAbortController) {
+    currentVisionAbortController.abort();
+    currentVisionAbortController = null;
+  }
+
+  const lang = targetLang || activeSettings.targetLanguage || 'Vietnamese';
+
+  try {
+    currentVisionAbortController = await streamVisionTranslation({
+      baseUrl: activeSettings.lmStudioUrl,
+      model: activeSettings.modelName,
+      imageBase64,
+      targetLanguage: lang,
+      reasoningEffort: activeSettings.reasoningEffort || 'none',
+      systemPromptTemplate: activeSettings.systemPrompt,
+      onChunk: (chunk) => {
+        event.sender.send('vision-translate-chunk', chunk);
+      },
+      onComplete: (fullText) => {
+        event.sender.send('vision-translate-complete', fullText);
+
+        const history = loadHistory();
+        saveHistoryToDisk([
+          {
+            id: Date.now().toString(),
+            originalText: '[Image Snipped Translation]',
+            translatedText: fullText,
+            targetLanguage: lang,
+            timestamp: Date.now(),
+          },
+          ...history,
+        ]);
+      },
+      onError: (err) => {
+        event.sender.send('vision-translate-error', err.message || 'Vision translation failed');
+      },
+    });
+  } catch (err: any) {
+    event.sender.send('vision-translate-error', err.message || 'Vision translation failed');
+  }
+});
+
+ipcMain.on('cancel-vision-translation', () => {
+  if (currentVisionAbortController) {
+    currentVisionAbortController.abort();
+    currentVisionAbortController = null;
   }
 });
 

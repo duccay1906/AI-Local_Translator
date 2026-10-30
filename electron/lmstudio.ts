@@ -378,3 +378,159 @@ Output ONLY the numbered translations without notes or greetings.`;
   });
 }
 
+export interface StreamVisionTranslateParams {
+  baseUrl: string;
+  model: string;
+  imageBase64: string;
+  targetLanguage: string;
+  systemPromptTemplate?: string;
+  reasoningEffort?: string;
+  onChunk: (chunk: string) => void;
+  onComplete: (fullText: string) => void;
+  onError: (error: Error) => void;
+}
+
+export async function streamVisionTranslation(params: StreamVisionTranslateParams): Promise<{ abort: () => void }> {
+  let { baseUrl, model, imageBase64, targetLanguage, reasoningEffort, onChunk, onComplete, onError } = params;
+
+  const promptText = `Bạn là chuyên gia dịch thuật đa phương tiện cao cấp. Hãy đọc và dịch toàn bộ nội dung trong bức ảnh này sang ${targetLanguage}.
+Yêu cầu chất lượng cao:
+- Dịch chuẩn xác, trau chuốt theo đúng ngữ cảnh hội thoại hoặc nội dung văn bản.
+- Giữ nguyên định dạng hội thoại nếu có (ví dụ: [Tên người nói], (Thời gian), các danh sách gạch đầu dòng).
+- Định dạng kết quả bằng Markdown sạch đẹp, dễ đọc.
+- Chỉ xuất ra kết quả dịch, TUYỆT ĐỐI không thêm lời giải thích, dẫn dắt hay ghi chú mở đầu/kết thúc.`;
+
+  const cleanUrl = baseUrl.replace(/\/+$/, '');
+  const endpoint = `${cleanUrl}/v1/chat/completions`;
+  const parsedUrl = new URL(endpoint);
+  const transport = parsedUrl.protocol === 'https:' ? https : http;
+
+  const formattedImageUrl = imageBase64.startsWith('data:')
+    ? imageBase64
+    : `data:image/png;base64,${imageBase64}`;
+
+  const requestModel = (targetModel: string, isRetry = false, omitReasoningEffort = false): { abort: () => void } => {
+    const payloadObj: Record<string, any> = {
+      model: targetModel || '',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: promptText,
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: formattedImageUrl,
+              },
+            },
+          ],
+        },
+      ],
+      temperature: 0.2,
+      stream: true,
+    };
+
+    if (!omitReasoningEffort) {
+      payloadObj.reasoning_effort = reasoningEffort || 'none';
+    }
+
+    const postData = JSON.stringify(payloadObj);
+
+    const options: http.RequestOptions = {
+      hostname: parsedUrl.hostname,
+      port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
+      path: parsedUrl.pathname + parsedUrl.search,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData),
+      },
+    };
+
+    let fullTranslatedText = '';
+    let buffer = '';
+
+    const req = transport.request(options, (res) => {
+      if (res.statusCode && (res.statusCode < 200 || res.statusCode >= 300)) {
+        let errBody = '';
+        res.on('data', (d) => (errBody += d));
+        res.on('end', () => {
+          if (!isRetry && res.statusCode === 400 && errBody.includes('Failed to load model')) {
+            requestModel('', true, omitReasoningEffort);
+            return;
+          }
+          if (!omitReasoningEffort && res.statusCode === 400 && errBody.includes('reasoning_effort')) {
+            requestModel(targetModel, isRetry, true);
+            return;
+          }
+          onError(new Error(`LM Studio Vision returned status ${res.statusCode}: ${errBody}`));
+        });
+        return;
+      }
+
+      res.setEncoding('utf8');
+
+      res.on('data', (chunk: string) => {
+        buffer += chunk;
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith(':')) continue;
+
+          if (trimmed === 'data: [DONE]') {
+            onComplete(fullTranslatedText);
+            return;
+          }
+
+          if (trimmed.startsWith('data: ')) {
+            const jsonStr = trimmed.substring(6);
+            try {
+              const parsed = JSON.parse(jsonStr);
+              const content = parsed.choices?.[0]?.delta?.content || '';
+              if (content) {
+                fullTranslatedText += content;
+                onChunk(content);
+              }
+            } catch (e) {}
+          }
+        }
+      });
+
+      res.on('end', () => {
+        if (buffer.trim().startsWith('data: ')) {
+          const jsonStr = buffer.trim().substring(6);
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content || '';
+            if (content) {
+              fullTranslatedText += content;
+              onChunk(content);
+            }
+          } catch (e) {}
+        }
+        onComplete(fullTranslatedText);
+      });
+    });
+
+    req.on('error', (err) => {
+      onError(err);
+    });
+
+    req.write(postData);
+    req.end();
+
+    return {
+      abort: () => {
+        req.destroy();
+      },
+    };
+  };
+
+  return requestModel(model || '');
+}
+

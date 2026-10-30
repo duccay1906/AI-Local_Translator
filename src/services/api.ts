@@ -88,6 +88,47 @@ export const api = {
     return () => {};
   },
 
+  // Vision AI Translation
+  onInitVisionTranslate: (callback: (data: { imagePreview: string; targetLanguage: string }) => void) => {
+    if (window.electronAPI && (window.electronAPI as any).onInitVisionTranslate) {
+      return (window.electronAPI as any).onInitVisionTranslate(callback);
+    }
+    return () => {};
+  },
+
+  onVisionTranslateChunk: (callback: (chunk: string) => void) => {
+    if (window.electronAPI && (window.electronAPI as any).onVisionTranslateChunk) {
+      return (window.electronAPI as any).onVisionTranslateChunk(callback);
+    }
+    return () => {};
+  },
+
+  onVisionTranslateComplete: (callback: (fullText: string) => void) => {
+    if (window.electronAPI && (window.electronAPI as any).onVisionTranslateComplete) {
+      return (window.electronAPI as any).onVisionTranslateComplete(callback);
+    }
+    return () => {};
+  },
+
+  onVisionTranslateError: (callback: (error: string) => void) => {
+    if (window.electronAPI && (window.electronAPI as any).onVisionTranslateError) {
+      return (window.electronAPI as any).onVisionTranslateError(callback);
+    }
+    return () => {};
+  },
+
+  startVisionTranslation: (data: { imageBase64: string; targetLang?: string }) => {
+    if (window.electronAPI && (window.electronAPI as any).startVisionTranslation) {
+      (window.electronAPI as any).startVisionTranslation(data);
+    }
+  },
+
+  cancelVisionTranslation: () => {
+    if (window.electronAPI && (window.electronAPI as any).cancelVisionTranslation) {
+      (window.electronAPI as any).cancelVisionTranslation();
+    }
+  },
+
   onOcrStateChange: (callback: (data: OcrStatePayload) => void) => {
     if (window.electronAPI) {
       return window.electronAPI.onOcrStateChange(callback);

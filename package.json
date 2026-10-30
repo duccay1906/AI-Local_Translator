@@ -1,6 +1,6 @@
 {
   "name": "ai-local-translator",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "AI-powered Local Desktop Translation App with LM Studio",
   "main": "dist-electron/main.js",
   "scripts": {

@@ -1,72 +1,123 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { VisualBlockTranslation, VisualTranslationPayload, OcrStatePayload } from '../types';
 import {
   Copy,
   Check,
-  Eye,
-  EyeOff,
   Download,
   Sparkles,
   Pin,
-  PinOff,
   X,
-  Maximize2,
-  Minimize2,
   ZoomIn,
   ZoomOut,
-  FileText,
-  Image as ImageIcon,
-  Loader2,
-  AlertTriangle,
-  RotateCcw,
+  Maximize2,
+  Minimize2,
+  Volume2,
+  VolumeX,
+  RotateCw,
+  AlertCircle,
+  FileImage,
+  MessageSquare,
 } from 'lucide-react';
 import { api } from '../services/api';
 
+const SUPPORTED_LANGUAGES = [
+  'Vietnamese',
+  'English',
+  'Korean',
+  'Japanese',
+  'Chinese (Simplified)',
+  'French',
+  'German',
+  'Spanish',
+  'Russian',
+];
+
 export const OcrDialog: React.FC = () => {
-  const [ocrState, setOcrState] = useState<OcrStatePayload>({
-    status: 'processing',
-    message: 'Extracting text from image (OCR)...',
-  });
-  const [visualData, setVisualData] = useState<VisualTranslationPayload | null>(null);
-  const [viewMode, setViewMode] = useState<'visual' | 'text'>('visual');
-  const [scaleMode, setScaleMode] = useState<'original' | 'fit'>('original');
-  const [zoom, setZoom] = useState<number>(100);
-  const [fontScale, setFontScale] = useState<number>(1.0);
-  const [showOriginal, setShowOriginal] = useState<boolean>(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [targetLanguage, setTargetLanguage] = useState<string>('Vietnamese');
+  const [translatedText, setTranslatedText] = useState<string>('');
+  const [isStreaming, setIsStreaming] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPinned, setIsPinned] = useState<boolean>(false);
-  const [hoveredBlockId, setHoveredBlockId] = useState<number | null>(null);
-  const [selectedBlockId, setSelectedBlockId] = useState<number | null>(null);
-  const [copiedId, setCopiedId] = useState<number | null>(null);
-  const [copiedImage, setCopiedImage] = useState<boolean>(false);
   const [copiedText, setCopiedText] = useState<boolean>(false);
-  const [renderedImageUrl, setRenderedImageUrl] = useState<string | null>(null);
+  const [copiedImage, setCopiedImage] = useState<boolean>(false);
+  const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+  const [zoom, setZoom] = useState<number>(100);
+  const [fitMode, setFitMode] = useState<'fit' | 'original'>('fit');
+  const [imageSize, setImageSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
 
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const imgRef = useRef<HTMLImageElement | null>(null);
-  const [naturalSize, setNaturalSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  const textContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // Listen to IPC events for OCR status and Visual Translate payload
+  // Setup IPC listeners
   useEffect(() => {
-    const cleanupState = api.onOcrStateChange((state) => {
-      setOcrState(state);
-      if (state.status === 'processing') {
-        setShowOriginal(false);
+    // 1. New Multimodal Vision Events
+    const cleanupInit = api.onInitVisionTranslate((data) => {
+      setImagePreview(data.imagePreview);
+      if (data.targetLanguage) setTargetLanguage(data.targetLanguage);
+      setTranslatedText('');
+      setErrorMessage(null);
+      setIsStreaming(true);
+    });
+
+    const cleanupChunk = api.onVisionTranslateChunk((chunk) => {
+      setTranslatedText((prev) => prev + chunk);
+      setIsStreaming(true);
+      // Auto-scroll to bottom while streaming
+      if (textContainerRef.current) {
+        textContainerRef.current.scrollTop = textContainerRef.current.scrollHeight;
       }
     });
 
+    const cleanupComplete = api.onVisionTranslateComplete((fullText) => {
+      setTranslatedText(fullText);
+      setIsStreaming(false);
+      setErrorMessage(null);
+    });
+
+    const cleanupError = api.onVisionTranslateError((err) => {
+      setErrorMessage(err);
+      setIsStreaming(false);
+    });
+
+    // Backwards compatibility listeners (in case old event is dispatched)
     const cleanupVisual = api.onTriggerVisualTranslate((data) => {
-      setOcrState({ status: 'done', imagePreview: data.imagePreview });
-      setVisualData(data);
-      setViewMode('visual');
+      setImagePreview(data.imagePreview);
+      if (data.fullTranslatedText) {
+        setTranslatedText(data.fullTranslatedText);
+      }
+      setIsStreaming(false);
+    });
+
+    const cleanupOcrState = api.onOcrStateChange((state) => {
+      if (state.imagePreview) {
+        setImagePreview(state.imagePreview);
+      }
+      if (state.status === 'error' && state.message) {
+        setErrorMessage(state.message);
+        setIsStreaming(false);
+      }
     });
 
     return () => {
-      cleanupState();
+      cleanupInit();
+      cleanupChunk();
+      cleanupComplete();
+      cleanupError();
       cleanupVisual();
+      cleanupOcrState();
     };
   }, []);
 
-  // Handle window click outside to close if not pinned
+  // Update image natural dimensions when image loads
+  useEffect(() => {
+    if (!imagePreview) return;
+    const img = new Image();
+    img.src = imagePreview;
+    img.onload = () => {
+      setImageSize({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+  }, [imagePreview]);
+
+  // Handle window blur (close if unpinned)
   useEffect(() => {
     const handleBlur = () => {
       if (!isPinned) {
@@ -88,920 +139,634 @@ export const OcrDialog: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Inpaint and render translated text onto Canvas
-  useEffect(() => {
-    const imageSource = visualData?.imagePreview || ocrState.imagePreview;
-    if (!imageSource || !visualData?.blocks || visualData.blocks.length === 0) {
-      setRenderedImageUrl(null);
-      return;
-    }
-
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      setNaturalSize({ width: img.naturalWidth, height: img.naturalHeight });
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      if (!ctx) return;
-
-      // 1. Draw original base image
-      ctx.drawImage(img, 0, 0);
-
-      // 2. Inpaint and render each block
-      for (const block of visualData.blocks) {
-        const { bbox, translatedText, lineCount } = block;
-        if (!bbox || !translatedText) continue;
-
-        const padX = 2;
-        const padY = 2;
-        const x = Math.max(0, bbox.x0 - padX);
-        const y = Math.max(0, bbox.y0 - padY);
-        const w = Math.min(canvas.width - x, bbox.x1 - bbox.x0 + padX * 2);
-        const h = Math.min(canvas.height - y, bbox.y1 - bbox.y0 + padY * 2);
-
-        if (w <= 3 || h <= 3) continue;
-
-        // Sample background pixels to calculate median background color
-        const sampledColors: { r: number; g: number; b: number; lum: number }[] = [];
-        const samplePixel = (sx: number, sy: number) => {
-          if (sx >= 0 && sx < canvas.width && sy >= 0 && sy < canvas.height) {
-            try {
-              const d = ctx.getImageData(sx, sy, 1, 1).data;
-              const lum = 0.299 * d[0] + 0.587 * d[1] + 0.114 * d[2];
-              sampledColors.push({ r: d[0], g: d[1], b: d[2], lum });
-            } catch (e) {}
-          }
-        };
-
-        samplePixel(Math.max(0, x - 2), Math.floor(y + h / 2));
-        samplePixel(Math.min(canvas.width - 1, x + w + 2), Math.floor(y + h / 2));
-        samplePixel(Math.floor(x + w / 2), Math.max(0, y - 2));
-        samplePixel(Math.floor(x + w / 2), Math.min(canvas.height - 1, y + h + 2));
-        samplePixel(x + 3, y + 2);
-        samplePixel(x + w - 3, y + 2);
-        samplePixel(x + 3, y + h - 2);
-        samplePixel(x + w - 3, y + h - 2);
-
-        let avgR = 255, avgG = 255, avgB = 255;
-        if (sampledColors.length > 0) {
-          sampledColors.sort((a, b) => a.lum - b.lum);
-          const median = sampledColors[Math.floor(sampledColors.length / 2)];
-          avgR = median.r;
-          avgG = median.g;
-          avgB = median.b;
-        }
-
-        const luminance = 0.299 * avgR + 0.587 * avgG + 0.114 * avgB;
-        const isBgLight = luminance > 130;
-        const textColor = isBgLight ? '#0f172a' : '#f8fafc';
-        const bgColor = `rgb(${avgR}, ${avgG}, ${avgB})`;
-
-        // Step 1: Draw filled background
-        ctx.save();
-        ctx.fillStyle = bgColor;
-        const radius = Math.min(6, Math.floor(h / 4));
-        ctx.beginPath();
-        if (ctx.roundRect) {
-          ctx.roundRect(x, y, w, h, radius);
-        } else {
-          ctx.rect(x, y, w, h);
-        }
-        ctx.fill();
-
-        ctx.strokeStyle = isBgLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
-        // Step 2: Strict Clipping to prevent any spilling
-        ctx.beginPath();
-        if (ctx.roundRect) {
-          ctx.roundRect(x, y, w, h, radius);
-        } else {
-          ctx.rect(x, y, w, h);
-        }
-        ctx.clip();
-
-        // Step 3: Compute optimal font size
-        const availW = Math.max(12, w - 6);
-        const availH = Math.max(10, h - 4);
-        const words = translatedText.split(/\s+/).filter(Boolean);
-
-        const estLines = lineCount || Math.max(1, Math.round(h / 18));
-        const baseTargetSize = Math.floor((h / estLines) * 0.82 * fontScale);
-        const startFontSize = Math.min(24, Math.max(9, baseTargetSize));
-
-        let bestFontSize = 8;
-        let bestLines: string[] = [];
-
-        for (let size = startFontSize; size >= 7; size--) {
-          ctx.font = `600 ${size}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
-          const lh = Math.round(size * 1.25);
-          const maxAllowedLines = Math.max(1, Math.floor(availH / lh));
-
-          const lines: string[] = [];
-          let cur = '';
-
-          for (const word of words) {
-            const test = cur ? `${cur} ${word}` : word;
-            if (ctx.measureText(test).width > availW && cur) {
-              lines.push(cur);
-              cur = word;
-            } else {
-              cur = test;
-            }
-          }
-          if (cur) lines.push(cur);
-
-          if (lines.length <= maxAllowedLines) {
-            bestFontSize = size;
-            bestLines = lines;
-            break;
-          }
-        }
-
-        if (bestLines.length === 0) {
-          bestFontSize = 7;
-          ctx.font = `600 ${bestFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-          const lines: string[] = [];
-          let cur = '';
-          for (const word of words) {
-            const test = cur ? `${cur} ${word}` : word;
-            if (ctx.measureText(test).width > availW && cur) {
-              lines.push(cur);
-              cur = word;
-            } else {
-              cur = test;
-            }
-          }
-          if (cur) lines.push(cur);
-          bestLines = lines;
-        }
-
-        const lineHeight = Math.round(bestFontSize * 1.25);
-        const maxLines = Math.max(1, Math.floor(availH / lineHeight));
-        if (bestLines.length > maxLines) {
-          bestLines = bestLines.slice(0, maxLines);
-          let last = bestLines[maxLines - 1];
-          while (last.length > 0 && ctx.measureText(last + '…').width > availW) {
-            last = last.slice(0, -1).trim();
-          }
-          bestLines[maxLines - 1] = (last || '') + '…';
-        }
-
-        // Step 4: Render text within vertical bounds
-        ctx.fillStyle = textColor;
-        ctx.font = `600 ${bestFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-
-        const totalTextHeight = bestLines.length * lineHeight;
-        const startY = y + Math.max(2, Math.floor((h - totalTextHeight) / 2));
-        const startX = x + Math.max(3, Math.min(6, Math.floor(w * 0.03)));
-
-        for (let i = 0; i < bestLines.length; i++) {
-          ctx.fillText(bestLines[i], startX, startY + i * lineHeight);
-        }
-
-        ctx.restore();
-      }
-
-      setRenderedImageUrl(canvas.toDataURL('image/png'));
-    };
-    img.src = imageSource;
-  }, [visualData, ocrState.imagePreview, fontScale]);
-
   const handleTogglePin = () => {
     const next = !isPinned;
     setIsPinned(next);
     api.setOcrPinned(next);
   };
 
-  const handleCopyTranslatedBlock = (block: VisualBlockTranslation) => {
-    api.copyToClipboard(block.translatedText);
-    setCopiedId(block.id);
-    setTimeout(() => setCopiedId(null), 1800);
+  const handleClose = () => {
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    api.closeOcrDialog();
   };
 
-  const handleCopyAllText = () => {
-    if (!visualData?.fullTranslatedText) return;
-    api.copyToClipboard(visualData.fullTranslatedText);
+  const handleCopyText = () => {
+    if (!translatedText) return;
+    api.copyToClipboard(translatedText);
     setCopiedText(true);
     setTimeout(() => setCopiedText(false), 2000);
   };
 
   const handleCopyImage = async () => {
-    if (!canvasRef.current) return;
+    if (!imagePreview) return;
     try {
-      canvasRef.current.toBlob(async (blob) => {
-        if (!blob) return;
-        try {
-          await navigator.clipboard.write([
-            new ClipboardItem({ 'image/png': blob }),
-          ]);
-          setCopiedImage(true);
-          setTimeout(() => setCopiedImage(false), 2000);
-        } catch (err) {
-          const dataUrl = canvasRef.current?.toDataURL('image/png');
-          if (dataUrl) {
-            api.copyToClipboard(dataUrl);
-            setCopiedImage(true);
-            setTimeout(() => setCopiedImage(false), 2000);
-          }
-        }
-      });
-    } catch (e) {
-      console.error('Failed to copy image to clipboard:', e);
+      const res = await fetch(imagePreview);
+      const blob = await res.blob();
+      await navigator.clipboard.write([
+        new ClipboardItem({ [blob.type]: blob }),
+      ]);
+      setCopiedImage(true);
+      setTimeout(() => setCopiedImage(false), 2000);
+    } catch {
+      api.copyToClipboard(imagePreview);
+      setCopiedImage(true);
+      setTimeout(() => setCopiedImage(false), 2000);
     }
   };
 
-  const handleDownload = () => {
-    if (!renderedImageUrl) return;
-    const a = document.createElement('a');
-    a.href = renderedImageUrl;
-    a.download = `translated_image_${Date.now()}.png`;
-    a.click();
+  const handleDownloadImage = () => {
+    if (!imagePreview) return;
+    const link = document.createElement('a');
+    link.href = imagePreview;
+    link.download = `Vision_Translate_${Date.now()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
-  const activeBlockId = hoveredBlockId !== null ? hoveredBlockId : selectedBlockId;
-  const activeBlock = visualData?.blocks.find((b) => b.id === activeBlockId);
-  const currentImagePreview = visualData?.imagePreview || ocrState.imagePreview;
+  const handleSpeak = () => {
+    if (!translatedText || !window.speechSynthesis) return;
+
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(translatedText);
+
+    if (targetLanguage === 'Vietnamese') utterance.lang = 'vi-VN';
+    else if (targetLanguage === 'English') utterance.lang = 'en-US';
+    else if (targetLanguage === 'Korean') utterance.lang = 'ko-KR';
+    else if (targetLanguage === 'Japanese') utterance.lang = 'ja-JP';
+    else if (targetLanguage === 'Chinese (Simplified)') utterance.lang = 'zh-CN';
+    else if (targetLanguage === 'French') utterance.lang = 'fr-FR';
+    else if (targetLanguage === 'German') utterance.lang = 'de-DE';
+
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    setIsSpeaking(true);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const handleRetry = () => {
+    if (!imagePreview) return;
+    setTranslatedText('');
+    setErrorMessage(null);
+    setIsStreaming(true);
+    api.startVisionTranslation({
+      imageBase64: imagePreview,
+      targetLang: targetLanguage,
+    });
+  };
+
+  const handleLanguageChange = (newLang: string) => {
+    setTargetLanguage(newLang);
+    if (!imagePreview) return;
+    setTranslatedText('');
+    setErrorMessage(null);
+    setIsStreaming(true);
+    api.startVisionTranslation({
+      imageBase64: imagePreview,
+      targetLang: newLang,
+    });
+  };
+
+  // Render nicely formatted conversation / markdown text
+  const renderFormattedText = (rawText: string) => {
+    if (!rawText) return null;
+
+    const lines = rawText.split('\n');
+    return lines.map((line, idx) => {
+      const trimmed = line.trim();
+
+      // Speaker line: e.g. [Jay (PARK Jong-Ho)] or [Người phản hồi]
+      if (/^\[.+\]$/.test(trimmed)) {
+        return (
+          <div
+            key={idx}
+            style={{
+              fontWeight: 700,
+              color: '#818cf8',
+              fontSize: '13px',
+              marginTop: idx > 0 ? '14px' : '0px',
+              marginBottom: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <MessageSquare size={13} color="#818cf8" />
+            <span>{trimmed}</span>
+          </div>
+        );
+      }
+
+      // Timestamp line: e.g. (Thời gian: 5:20 chiều) or (5:31 chiều)
+      if (/^\(.*\)$/.test(trimmed) && (trimmed.includes('Thời gian') || trimmed.includes('chiều') || trimmed.includes('sáng') || trimmed.includes(':'))) {
+        return (
+          <div
+            key={idx}
+            style={{
+              fontSize: '11px',
+              color: 'var(--text-dim)',
+              fontStyle: 'italic',
+              marginBottom: '8px',
+              paddingLeft: '2px',
+            }}
+          >
+            {trimmed}
+          </div>
+        );
+      }
+
+      // Empty separator line
+      if (!trimmed) {
+        return <div key={idx} style={{ height: '8px' }} />;
+      }
+
+      // Regular paragraph or dialog text
+      return (
+        <div
+          key={idx}
+          style={{
+            fontSize: '13px',
+            lineHeight: '1.65',
+            color: 'var(--text-main)',
+            marginBottom: '4px',
+            userSelect: 'text',
+            WebkitUserSelect: 'text',
+          }}
+        >
+          {line}
+        </div>
+      );
+    });
+  };
+
+  const wordCount = translatedText.trim() ? translatedText.trim().split(/\s+/).length : 0;
+  const charCount = translatedText.length;
 
   return (
     <div
-      className="glass-panel"
       style={{
         width: '100vw',
         height: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        borderRadius: '12px',
-        border: '1px solid var(--glass-border)',
-        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(99, 102, 241, 0.15)',
-        background: 'rgba(11, 15, 25, 0.94)',
-        backdropFilter: 'blur(20px)',
+        background: 'var(--bg-main)',
+        color: 'var(--text-main)',
         overflow: 'hidden',
+        border: '1px solid var(--glass-border)',
+        boxShadow: 'var(--shadow-popup)',
       }}
     >
-      {/* Hidden processing canvas */}
-      <canvas ref={canvasRef} style={{ display: 'none' }} />
-
-      {/* Header Bar */}
+      {/* Header Toolbar */}
       <div
         className="drag-region"
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '6px 12px',
-          background: 'rgba(18, 24, 38, 0.88)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-          fontSize: '11.5px',
-          minHeight: '44px',
+          padding: '8px 14px',
+          background: 'rgba(18, 24, 38, 0.95)',
+          borderBottom: '1px solid var(--glass-border)',
+          gap: '12px',
           flexShrink: 0,
-          overflowX: 'auto',
         }}
       >
-        {/* Left: Title & Info */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+        {/* Left Title & Status */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }} className="no-drag">
           <div
             style={{
+              width: '26px',
+              height: '26px',
+              borderRadius: '7px',
+              background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '24px',
-              height: '24px',
-              borderRadius: '6px',
-              background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+              boxShadow: '0 0 12px rgba(99, 102, 241, 0.4)',
+              flexShrink: 0,
             }}
           >
             <Sparkles size={14} color="#fff" />
           </div>
-          <span style={{ fontWeight: 700, color: '#f8fafc', letterSpacing: '-0.2px', whiteSpace: 'nowrap' }}>
-            Visual OCR
-          </span>
-          {visualData?.blocks && (
-            <span
-              style={{
-                fontSize: '10px',
-                padding: '2px 6px',
-                borderRadius: '10px',
-                background: 'rgba(99, 102, 241, 0.2)',
-                color: '#818cf8',
-                fontWeight: 600,
-                border: '1px solid rgba(99, 102, 241, 0.3)',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {visualData.blocks.length} block{visualData.blocks.length > 1 ? 's' : ''}
-            </span>
-          )}
-          {visualData?.targetLanguage && (
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-              → {visualData.targetLanguage}
-            </span>
-          )}
+
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '0.01em', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>AI Vision Translator</span>
+              <span
+                style={{
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  padding: '1px 6px',
+                  borderRadius: '10px',
+                  background: isStreaming ? 'rgba(99, 102, 241, 0.25)' : 'rgba(16, 185, 129, 0.2)',
+                  color: isStreaming ? '#a5b4fc' : '#6ee7b7',
+                  border: isStreaming ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)',
+                }}
+              >
+                {isStreaming ? 'Translating...' : 'Multimodal Vision'}
+              </span>
+            </div>
+          </div>
         </div>
 
-        {/* Right: Controls & Actions */}
-        <div className="no-drag" style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
-          {/* Mode switch (Visual vs Text) */}
-          {visualData && (
-            <div
-              style={{
-                display: 'flex',
-                background: 'rgba(0, 0, 0, 0.3)',
-                borderRadius: '6px',
-                padding: '2px',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-              }}
-            >
-              <button
-                type="button"
-                className={`btn-icon ${viewMode === 'visual' ? 'active' : ''}`}
-                onClick={() => setViewMode('visual')}
-                title="Visual in-place translation view"
-                style={{
-                  width: 'auto',
-                  padding: '2px 8px',
-                  height: '22px',
-                  fontSize: '11px',
-                  gap: '4px',
-                  background: viewMode === 'visual' ? 'var(--accent-primary)' : 'transparent',
-                  color: viewMode === 'visual' ? '#fff' : 'var(--text-muted)',
-                }}
-              >
-                <ImageIcon size={11} />
-                <span>Visual</span>
-              </button>
-              <button
-                type="button"
-                className={`btn-icon ${viewMode === 'text' ? 'active' : ''}`}
-                onClick={() => setViewMode('text')}
-                title="Plain text translation view"
-                style={{
-                  width: 'auto',
-                  padding: '2px 8px',
-                  height: '22px',
-                  fontSize: '11px',
-                  gap: '4px',
-                  background: viewMode === 'text' ? 'var(--accent-primary)' : 'transparent',
-                  color: viewMode === 'text' ? '#fff' : 'var(--text-muted)',
-                }}
-              >
-                <FileText size={11} />
-                <span>Text</span>
-              </button>
-            </div>
-          )}
-
-          {/* Scale mode: 1:1 vs Fit */}
-          {visualData && viewMode === 'visual' && (
-            <div
-              style={{
-                display: 'flex',
-                background: 'rgba(0, 0, 0, 0.3)',
-                borderRadius: '6px',
-                padding: '2px',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-              }}
-            >
-              <button
-                type="button"
-                className={`btn-icon ${scaleMode === 'original' ? 'active' : ''}`}
-                onClick={() => {
-                  setScaleMode('original');
-                  setZoom(100);
-                }}
-                title="Display at 100% original size (1:1 Native Resolution)"
-                style={{
-                  width: 'auto',
-                  padding: '2px 7px',
-                  height: '22px',
-                  fontSize: '11px',
-                  gap: '4px',
-                  background: scaleMode === 'original' ? 'rgba(99, 102, 241, 0.3)' : 'transparent',
-                  color: scaleMode === 'original' ? '#38bdf8' : 'var(--text-muted)',
-                }}
-              >
-                <Maximize2 size={11} />
-                <span>1:1</span>
-              </button>
-              <button
-                type="button"
-                className={`btn-icon ${scaleMode === 'fit' ? 'active' : ''}`}
-                onClick={() => {
-                  setScaleMode('fit');
-                  setZoom(100);
-                }}
-                title="Fit to window viewport"
-                style={{
-                  width: 'auto',
-                  padding: '2px 7px',
-                  height: '22px',
-                  fontSize: '11px',
-                  gap: '4px',
-                  background: scaleMode === 'fit' ? 'rgba(99, 102, 241, 0.3)' : 'transparent',
-                  color: scaleMode === 'fit' ? '#38bdf8' : 'var(--text-muted)',
-                }}
-              >
-                <Minimize2 size={11} />
-                <span>Fit</span>
-              </button>
-            </div>
-          )}
-
-          {/* Zoom controls (Only in 1:1 original mode) */}
-          {visualData && viewMode === 'visual' && scaleMode === 'original' && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '2px',
-                background: 'rgba(255, 255, 255, 0.05)',
-                borderRadius: '5px',
-                padding: '1px 3px',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-              }}
-            >
-              <button
-                type="button"
-                className="btn-icon"
-                onClick={() => setZoom((z) => Math.max(50, z - 15))}
-                title="Zoom out image"
-                style={{ width: '20px', height: '20px' }}
-              >
-                <ZoomOut size={11} />
-              </button>
-              <span style={{ fontSize: '10px', color: 'var(--text-muted)', minWidth: '32px', textAlign: 'center' }}>
-                {zoom}%
-              </span>
-              <button
-                type="button"
-                className="btn-icon"
-                onClick={() => setZoom((z) => Math.min(250, z + 15))}
-                title="Zoom in image"
-                style={{ width: '20px', height: '20px' }}
-              >
-                <ZoomIn size={11} />
-              </button>
-            </div>
-          )}
-
-          {/* Font Scale Adjustment */}
-          {visualData && viewMode === 'visual' && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '2px',
-                background: 'rgba(255, 255, 255, 0.05)',
-                borderRadius: '5px',
-                padding: '1px 3px',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-              }}
-            >
-              <button
-                type="button"
-                className="btn-icon"
-                onClick={() => setFontScale((s) => Math.max(0.6, +(s - 0.1).toFixed(1)))}
-                title="Decrease overlay font size"
-                style={{ width: '20px', height: '20px', fontSize: '10px', fontWeight: 700 }}
-              >
-                A-
-              </button>
-              <span style={{ fontSize: '10px', color: 'var(--text-muted)', minWidth: '28px', textAlign: 'center' }}>
-                {Math.round(fontScale * 100)}%
-              </span>
-              <button
-                type="button"
-                className="btn-icon"
-                onClick={() => setFontScale((s) => Math.min(1.5, +(s + 0.1).toFixed(1)))}
-                title="Increase overlay font size"
-                style={{ width: '20px', height: '20px', fontSize: '10px', fontWeight: 700 }}
-              >
-                A+
-              </button>
-            </div>
-          )}
-
-          {/* Toggle View Original Button */}
-          {visualData && viewMode === 'visual' && (
-            <button
-              type="button"
-              className={`btn-icon ${showOriginal ? 'active' : ''}`}
-              onClick={() => setShowOriginal(!showOriginal)}
-              title={showOriginal ? 'Show translated image' : 'View original raw image'}
-              style={{ width: 'auto', padding: '2px 8px', height: '22px', fontSize: '11px', gap: '4px' }}
-            >
-              {showOriginal ? <EyeOff size={11} /> : <Eye size={11} />}
-              <span>{showOriginal ? 'Original' : 'Compare'}</span>
-            </button>
-          )}
-
-          {/* Copy Image Button */}
-          {visualData && viewMode === 'visual' && (
-            <button
-              type="button"
-              className={`btn-icon ${copiedImage ? 'active' : ''}`}
-              onClick={handleCopyImage}
-              title="Copy translated image to clipboard (Paste anywhere)"
-              style={{ width: 'auto', padding: '2px 8px', height: '22px', fontSize: '11px', gap: '4px' }}
-            >
-              {copiedImage ? <Check size={11} /> : <Copy size={11} />}
-              <span>{copiedImage ? 'Copied!' : 'Image'}</span>
-            </button>
-          )}
-
-          {/* Download Image Button */}
-          {visualData && viewMode === 'visual' && (
-            <button
-              type="button"
-              className="btn-icon"
-              onClick={handleDownload}
-              title="Download translated image as PNG"
-              style={{ width: '24px', height: '22px' }}
-            >
-              <Download size={11} />
-            </button>
-          )}
-
-          {/* Copy Full Text Button (Text mode) */}
-          {visualData && viewMode === 'text' && (
-            <button
-              type="button"
-              className={`btn-icon ${copiedText ? 'active' : ''}`}
-              onClick={handleCopyAllText}
-              title="Copy all translated text"
-              style={{ width: 'auto', padding: '2px 8px', height: '22px', fontSize: '11px', gap: '4px' }}
-            >
-              {copiedText ? <Check size={11} /> : <Copy size={11} />}
-              <span>{copiedText ? 'Copied!' : 'Copy Text'}</span>
-            </button>
-          )}
-
-          {/* Pin Button */}
-          <button
-            type="button"
-            className={`btn-icon ${isPinned ? 'active' : ''}`}
-            onClick={handleTogglePin}
-            title={isPinned ? 'Unpin window' : 'Pin window on top (keeps open when clicking outside)'}
-            style={{ width: '24px', height: '22px' }}
+        {/* Center / Right Action Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }} className="no-drag">
+          {/* Target Language Dropdown */}
+          <select
+            className="form-input"
+            value={targetLanguage}
+            onChange={(e) => handleLanguageChange(e.target.value)}
+            style={{
+              fontSize: '11px',
+              fontWeight: 600,
+              padding: '4px 8px',
+              height: '28px',
+              background: 'rgba(255, 255, 255, 0.06)',
+              border: '1px solid var(--glass-border)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text-main)',
+              cursor: 'pointer',
+              outline: 'none',
+            }}
           >
-            {isPinned ? <PinOff size={11} /> : <Pin size={11} />}
+            {SUPPORTED_LANGUAGES.map((lang) => (
+              <option key={lang} value={lang} style={{ background: '#1e293b', color: '#fff' }}>
+                {lang}
+              </option>
+            ))}
+          </select>
+
+          <div style={{ width: '1px', height: '16px', background: 'var(--glass-border)', margin: '0 4px' }} />
+
+          {/* Copy Translation Text */}
+          <button
+            className="btn-icon"
+            onClick={handleCopyText}
+            disabled={!translatedText}
+            title="Copy Translation Text"
+            style={{ width: '28px', height: '28px' }}
+          >
+            {copiedText ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
           </button>
 
-          {/* Close Button */}
+          {/* Text-to-Speech (TTS) */}
           <button
-            type="button"
             className="btn-icon"
-            onClick={() => api.closeOcrDialog()}
-            title="Close (Esc)"
-            style={{ width: '24px', height: '22px', color: 'var(--text-muted)' }}
+            onClick={handleSpeak}
+            disabled={!translatedText}
+            title={isSpeaking ? 'Stop Pronunciation' : 'Listen Pronunciation'}
+            style={{ width: '28px', height: '28px' }}
           >
-            <X size={13} />
+            {isSpeaking ? <VolumeX size={14} color="var(--accent-primary)" /> : <Volume2 size={14} />}
+          </button>
+
+          {/* Copy Original Image */}
+          <button
+            className="btn-icon"
+            onClick={handleCopyImage}
+            disabled={!imagePreview}
+            title="Copy Original Image to Clipboard"
+            style={{ width: '28px', height: '28px' }}
+          >
+            {copiedImage ? <Check size={14} color="#10b981" /> : <FileImage size={14} />}
+          </button>
+
+          {/* Download Original Image */}
+          <button
+            className="btn-icon"
+            onClick={handleDownloadImage}
+            disabled={!imagePreview}
+            title="Save Image as PNG"
+            style={{ width: '28px', height: '28px' }}
+          >
+            <Download size={14} />
+          </button>
+
+          {/* Retry / Regenerate */}
+          <button
+            className="btn-icon"
+            onClick={handleRetry}
+            disabled={isStreaming || !imagePreview}
+            title="Re-translate with Vision LLM"
+            style={{ width: '28px', height: '28px' }}
+          >
+            <RotateCw size={14} className={isStreaming ? 'spin-animation' : ''} />
+          </button>
+
+          <div style={{ width: '1px', height: '16px', background: 'var(--glass-border)', margin: '0 4px' }} />
+
+          {/* Pin Window */}
+          <button
+            className={`btn-icon ${isPinned ? 'active' : ''}`}
+            onClick={handleTogglePin}
+            title={isPinned ? 'Unpin Window' : 'Pin Always on Top'}
+            style={{ width: '28px', height: '28px' }}
+          >
+            <Pin size={14} />
+          </button>
+
+          {/* Close Window */}
+          <button
+            className="btn-icon"
+            onClick={handleClose}
+            title="Close (Esc)"
+            style={{ width: '28px', height: '28px' }}
+          >
+            <X size={14} />
           </button>
         </div>
       </div>
 
-      {/* Main Body */}
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        {/* Loading / Processing State */}
-        {ocrState.status === 'processing' && (
+      {/* Main Split-View Content */}
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          overflow: 'hidden',
+          background: 'rgba(11, 15, 25, 0.7)',
+        }}
+      >
+        {/* Left Column: Original Captured Image */}
+        <div
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            borderRight: '1px solid var(--glass-border)',
+            background: '#090d16',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Subheader: Image Info & Zoom Controls */}
+          <div
+            style={{
+              padding: '6px 12px',
+              background: 'rgba(18, 24, 38, 0.8)',
+              borderBottom: '1px solid var(--glass-border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: '11px',
+              color: 'var(--text-muted)',
+              flexShrink: 0,
+            }}
+          >
+            <span style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-dim)' }}>
+              Original Capture {imageSize.width > 0 && `(${imageSize.width} × ${imageSize.height} px)`}
+            </span>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <button
+                className="btn-icon"
+                onClick={() => setZoom((z) => Math.max(40, z - 20))}
+                title="Zoom Out"
+                style={{ width: '22px', height: '22px' }}
+              >
+                <ZoomOut size={12} />
+              </button>
+              <span style={{ fontSize: '11px', minWidth: '38px', textAlign: 'center', fontWeight: 600 }}>
+                {fitMode === 'fit' ? 'Fit' : `${zoom}%`}
+              </span>
+              <button
+                className="btn-icon"
+                onClick={() => {
+                  setFitMode('original');
+                  setZoom((z) => Math.min(250, z + 20));
+                }}
+                title="Zoom In"
+                style={{ width: '22px', height: '22px' }}
+              >
+                <ZoomIn size={12} />
+              </button>
+              <button
+                className="btn-icon"
+                onClick={() => {
+                  if (fitMode === 'fit') {
+                    setFitMode('original');
+                    setZoom(100);
+                  } else {
+                    setFitMode('fit');
+                  }
+                }}
+                title={fitMode === 'fit' ? 'View 100% Actual Size' : 'Fit to Window'}
+                style={{ width: '22px', height: '22px', marginLeft: '4px' }}
+              >
+                {fitMode === 'fit' ? <Maximize2 size={12} /> : <Minimize2 size={12} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Image Display Area */}
           <div
             style={{
               flex: 1,
+              overflow: 'auto',
               display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '14px',
-              padding: '24px',
+              alignItems: fitMode === 'fit' ? 'center' : 'flex-start',
+              justifyContent: fitMode === 'fit' ? 'center' : 'flex-start',
+              padding: '16px',
+              backgroundImage: 'radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 0)',
+              backgroundSize: '16px 16px',
             }}
           >
-            <div style={{ position: 'relative' }}>
-              <Loader2 size={36} color="var(--accent-primary)" className="animate-spin" />
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <span style={{ fontSize: '14px', fontWeight: 600, color: '#f8fafc', display: 'block' }}>
-                {ocrState.message || 'Extracting & translating text regions...'}
-              </span>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
-                Translating text segments with LM Studio (AI)...
-              </span>
-            </div>
-
-            {ocrState.imagePreview && (
-              <div
+            {imagePreview ? (
+              <img
+                src={imagePreview}
+                alt="Captured screen snippet"
                 style={{
-                  marginTop: '12px',
-                  maxHeight: '180px',
-                  borderRadius: '8px',
-                  overflow: 'hidden',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  opacity: 0.6,
+                  maxWidth: fitMode === 'fit' ? '100%' : 'none',
+                  maxHeight: fitMode === 'fit' ? '100%' : 'none',
+                  width: fitMode === 'original' ? `${(imageSize.width * zoom) / 100}px` : 'auto',
+                  height: fitMode === 'original' ? `${(imageSize.height * zoom) / 100}px` : 'auto',
+                  objectFit: 'contain',
+                  borderRadius: 'var(--radius-sm)',
+                  boxShadow: '0 8px 30px rgba(0, 0, 0, 0.6), 0 0 1px rgba(255, 255, 255, 0.1)',
+                  transition: 'width 0.15s ease, height 0.15s ease',
                 }}
-              >
-                <img
-                  src={ocrState.imagePreview}
-                  alt="Processing thumbnail"
-                  style={{ maxHeight: '180px', objectFit: 'contain', display: 'block' }}
-                />
+              />
+            ) : (
+              <div style={{ color: 'var(--text-dim)', fontSize: '12px' }}>
+                No image preview available
               </div>
             )}
           </div>
-        )}
+        </div>
 
-        {/* Error State */}
-        {ocrState.status === 'error' && (
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '12px',
-              padding: '30px',
-            }}
-          >
-            <AlertTriangle size={36} color="var(--danger)" />
-            <span style={{ fontSize: '13px', color: '#f87171', textAlign: 'center', maxWidth: '420px', lineHeight: 1.5 }}>
-              {ocrState.message || 'No readable text found or an error occurred during image extraction.'}
-            </span>
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={() => api.closeOcrDialog()}
-              style={{ marginTop: '10px', padding: '6px 16px', fontSize: '12px' }}
-            >
-              Close Window
-            </button>
-          </div>
-        )}
-
-        {/* Visual View Mode (1:1 Original Native Scale) */}
-        {ocrState.status === 'done' && viewMode === 'visual' && currentImagePreview && (
-          <div
-            style={{
-              flex: 1,
-              position: 'relative',
-              overflow: 'auto',
-              background: '#040711',
-              display: 'flex',
-              padding: scaleMode === 'original' ? '16px' : '8px',
-            }}
-          >
-            <div
-              style={{
-                position: 'relative',
-                display: 'inline-block',
-                margin: 'auto',
-                maxWidth: scaleMode === 'fit' ? '100%' : 'none',
-                maxHeight: scaleMode === 'fit' ? '100%' : 'none',
-              }}
-            >
-              <img
-                ref={imgRef}
-                src={showOriginal ? currentImagePreview : renderedImageUrl || currentImagePreview}
-                alt="Translated Visual Preview"
-                style={{
-                  display: 'block',
-                  borderRadius: '6px',
-                  boxShadow: '0 8px 30px rgba(0,0,0,0.6)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  width:
-                    scaleMode === 'original' && naturalSize.width > 0
-                      ? `${Math.round(naturalSize.width * (zoom / 100))}px`
-                      : scaleMode === 'fit'
-                      ? '100%'
-                      : 'auto',
-                  height:
-                    scaleMode === 'original' && naturalSize.height > 0
-                      ? `${Math.round(naturalSize.height * (zoom / 100))}px`
-                      : scaleMode === 'fit'
-                      ? '100%'
-                      : 'auto',
-                  maxWidth: scaleMode === 'fit' ? '100%' : 'none',
-                  maxHeight: scaleMode === 'fit' ? 'calc(100vh - 120px)' : 'none',
-                  objectFit: scaleMode === 'fit' ? 'contain' : 'initial',
-                }}
-              />
-
-              {/* Interactive Hotspots over translated blocks */}
-              {!showOriginal &&
-                visualData?.blocks &&
-                canvasRef.current &&
-                visualData.blocks.map((block) => {
-                  const canvasW = canvasRef.current?.width || 1;
-                  const canvasH = canvasRef.current?.height || 1;
-
-                  const leftPct = (block.bbox.x0 / canvasW) * 100;
-                  const topPct = (block.bbox.y0 / canvasH) * 100;
-                  const widthPct = ((block.bbox.x1 - block.bbox.x0) / canvasW) * 100;
-                  const heightPct = ((block.bbox.y1 - block.bbox.y0) / canvasH) * 100;
-
-                  const isCurrent = activeBlockId === block.id;
-
-                  return (
-                    <div
-                      key={block.id}
-                      onMouseEnter={() => setHoveredBlockId(block.id)}
-                      onMouseLeave={() => setHoveredBlockId(null)}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedBlockId(block.id);
-                        handleCopyTranslatedBlock(block);
-                      }}
-                      title={`Click to select & copy translation:\n"${block.translatedText}"`}
-                      style={{
-                        position: 'absolute',
-                        left: `${leftPct}%`,
-                        top: `${topPct}%`,
-                        width: `${widthPct}%`,
-                        height: `${heightPct}%`,
-                        cursor: 'pointer',
-                        borderRadius: '3px',
-                        border: isCurrent
-                          ? '1.5px solid var(--accent-primary)'
-                          : '1px solid transparent',
-                        backgroundColor: isCurrent ? 'rgba(99, 102, 241, 0.22)' : 'transparent',
-                        transition: 'border-color 0.1s ease, background-color 0.1s ease',
-                      }}
-                    />
-                  );
-                })}
-            </div>
-          </div>
-        )}
-
-        {/* Text View Mode (Side-by-side or stacked clean text) */}
-        {ocrState.status === 'done' && viewMode === 'text' && visualData && (
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'row',
-              gap: '12px',
-              padding: '12px',
-              overflow: 'hidden',
-            }}
-          >
-            {/* Original Text */}
-            <div
-              style={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                background: 'rgba(0, 0, 0, 0.25)',
-                borderRadius: '8px',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                padding: '10px',
-                overflow: 'hidden',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  marginBottom: '8px',
-                  paddingBottom: '6px',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
-                }}
-              >
-                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)' }}>
-                  ORIGINAL TEXT (OCR)
-                </span>
-                <button
-                  type="button"
-                  className="btn-icon"
-                  onClick={() => api.copyToClipboard(visualData.fullOriginalText)}
-                  title="Copy original text"
-                  style={{ width: '20px', height: '20px' }}
-                >
-                  <Copy size={11} />
-                </button>
-              </div>
-              <div
-                className="select-text"
-                style={{
-                  flex: 1,
-                  overflowY: 'auto',
-                  fontSize: '12.5px',
-                  lineHeight: '1.6',
-                  color: 'var(--text-main)',
-                  whiteSpace: 'pre-wrap',
-                }}
-              >
-                {visualData.fullOriginalText}
-              </div>
-            </div>
-
-            {/* Translated Text */}
-            <div
-              style={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                background: 'rgba(15, 23, 42, 0.4)',
-                borderRadius: '8px',
-                border: '1px solid rgba(99, 102, 241, 0.2)',
-                padding: '10px',
-                overflow: 'hidden',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  marginBottom: '8px',
-                  paddingBottom: '6px',
-                  borderBottom: '1px solid rgba(99, 102, 241, 0.15)',
-                }}
-              >
-                <span style={{ fontSize: '11px', fontWeight: 600, color: '#818cf8' }}>
-                  TRANSLATION ({visualData.targetLanguage})
-                </span>
-                <button
-                  type="button"
-                  className="btn-icon"
-                  onClick={handleCopyAllText}
-                  title="Copy translation"
-                  style={{ width: '20px', height: '20px' }}
-                >
-                  {copiedText ? <Check size={11} /> : <Copy size={11} />}
-                </button>
-              </div>
-              <div
-                className="select-text"
-                style={{
-                  flex: 1,
-                  overflowY: 'auto',
-                  fontSize: '13px',
-                  lineHeight: '1.65',
-                  color: '#f8fafc',
-                  whiteSpace: 'pre-wrap',
-                  fontWeight: 500,
-                }}
-              >
-                {visualData.fullTranslatedText}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Persistent Bottom Detail / Inspector Bar */}
-      {ocrState.status === 'done' && viewMode === 'visual' && (
+        {/* Right Column: AI Vision Translation */}
         <div
           style={{
-            minHeight: '42px',
-            height: '42px',
-            padding: '6px 14px',
-            background: 'rgba(15, 23, 42, 0.96)',
-            borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-            fontSize: '11.5px',
+            flex: 1,
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
-            flexShrink: 0,
+            flexDirection: 'column',
+            background: 'var(--bg-card)',
+            position: 'relative',
+            overflow: 'hidden',
           }}
         >
-          {activeBlock ? (
-            <>
-              <div style={{ flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-                <span style={{ color: 'var(--text-muted)', fontSize: '11px', marginRight: '8px' }}>
-                  Original: "{activeBlock.originalText}"
-                </span>
-                <span style={{ color: '#38bdf8', fontWeight: 600, fontSize: '12px' }}>
-                  → {activeBlock.translatedText}
-                </span>
-              </div>
+          {/* Subheader: Translation Status */}
+          <div
+            style={{
+              padding: '6px 14px',
+              background: 'rgba(18, 24, 38, 0.8)',
+              borderBottom: '1px solid var(--glass-border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: '11px',
+              color: 'var(--text-muted)',
+              flexShrink: 0,
+            }}
+          >
+            <span style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Sparkles size={12} color="var(--accent-primary)" />
+              AI Translation Output
+            </span>
 
-              <button
-                type="button"
-                className="btn-icon"
-                onClick={() => handleCopyTranslatedBlock(activeBlock)}
-                title="Copy this translation"
-                style={{ width: 'auto', padding: '2px 8px', height: '24px', fontSize: '11px', gap: '4px', flexShrink: 0 }}
+            <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
+              {isStreaming ? 'AI is generating...' : `${wordCount} words • ${charCount} chars`}
+            </span>
+          </div>
+
+          {/* Translation Output Body */}
+          <div
+            ref={textContainerRef}
+            style={{
+              flex: 1,
+              padding: '18px 20px',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px',
+            }}
+          >
+            {/* Error Message */}
+            {errorMessage && (
+              <div
+                style={{
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '14px 16px',
+                  color: '#fca5a5',
+                  fontSize: '12px',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                  marginBottom: '10px',
+                }}
               >
-                {copiedId === activeBlock.id ? <Check size={12} /> : <Copy size={12} />}
-                <span>{copiedId === activeBlock.id ? 'Copied!' : 'Copy'}</span>
-              </button>
-            </>
-          ) : (
-            <div style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>Hover or click any text block on the image to inspect and copy its translation</span>
-            </div>
-          )}
+                <AlertCircle size={16} color="#ef4444" style={{ flexShrink: 0, marginTop: '2px' }} />
+                <div style={{ flex: 1 }}>
+                  <strong>Translation Failed:</strong>
+                  <div style={{ marginTop: '2px', lineHeight: '1.4' }}>{errorMessage}</div>
+                  <button
+                    className="btn-secondary"
+                    onClick={handleRetry}
+                    style={{ marginTop: '8px', fontSize: '11px', padding: '4px 10px' }}
+                  >
+                    <RotateCw size={12} /> Retry
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Formatted Translated Text */}
+            {translatedText ? (
+              <div style={{ flex: 1 }}>
+                {renderFormattedText(translatedText)}
+                {isStreaming && (
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      width: '6px',
+                      height: '14px',
+                      background: 'var(--accent-primary)',
+                      marginLeft: '4px',
+                      verticalAlign: 'middle',
+                      animation: 'pulse 0.8s infinite',
+                    }}
+                  />
+                )}
+              </div>
+            ) : isStreaming ? (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flex: 1,
+                  color: 'var(--text-muted)',
+                  gap: '10px',
+                }}
+              >
+                <RotateCw size={22} className="spin-animation" color="var(--accent-primary)" />
+                <div style={{ fontSize: '13px', fontWeight: 500 }}>
+                  Gemma 4 Vision is analyzing and translating the image...
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
+                  Reading text, conversation flow, timestamps, and context directly from visual input.
+                </div>
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flex: 1,
+                  color: 'var(--text-dim)',
+                  fontSize: '13px',
+                }}
+              >
+                Ready for translation
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Action Footer */}
+          <div
+            style={{
+              padding: '8px 14px',
+              background: 'rgba(18, 24, 38, 0.9)',
+              borderTop: '1px solid var(--glass-border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: '11px',
+              color: 'var(--text-dim)',
+              flexShrink: 0,
+            }}
+          >
+            <span>✨ Powered by LM Studio Multimodal Vision</span>
+
+            <button
+              className="btn-primary"
+              onClick={handleCopyText}
+              disabled={!translatedText}
+              style={{
+                height: '28px',
+                fontSize: '11px',
+                padding: '0 12px',
+                gap: '6px',
+              }}
+            >
+              {copiedText ? <Check size={13} /> : <Copy size={13} />}
+              {copiedText ? 'Copied!' : 'Copy Translation'}
+            </button>
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

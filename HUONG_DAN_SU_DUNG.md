@@ -47,31 +47,22 @@
 
 ---
 
-### 2.2. Chụp & Dịch chữ từ ảnh màn hình - Visual OCR (Phím tắt: `F9`)
-Áp dụng khi gặp các nội dung không bôi đen được bằng chuột (Đoạn chat Messenger, KakaoTalk, Telegram, Zalo, video YouTube, truyện tranh, game, ảnh chụp tài liệu, slide thuyết trình,...):
-1. Nhấn phím **`F9`** (hoặc phím tắt do bạn tùy chỉnh).
-2. Màn hình sẽ tối mờ lại kèm con trỏ chữ thập `+` (tương tự công cụ `Win + Shift + S`).
-3. **Kéo giữ chuột trái** để khoanh vùng hình ảnh chứa chữ cần dịch:
-   - Trên thanh công cụ nổi phía trên, bạn có thể chọn nhanh ngôn ngữ nguồn OCR:
-     - `Auto Detect`: Tự động nhận diện (Anh / Hàn / Nhật / Trung / Việt).
-     - Hoặc chọn cố định từng tiếng: `Korean + English`, `Japanese + English`, `Chinese + English`, `English Only`,...
-   - Nếu muốn hủy chụp: Nhấn phím **`Esc`** hoặc **click chuột phải**.
-4. Khi bạn **thả chuột trái**, ứng dụng sẽ tự động kích hoạt **Dialog OCR chuyên biệt (Visual OCR Translator)**:
-   - **Kích thước thích ứng thông minh (1:1 Native Resolution)**: Cửa sổ OCR Dialog tự động mở rộng theo kích thước thật của ảnh chụp (tối đa tới 90% màn hình), giữ nguyên độ phân giải 100% gốc không bị co rúm hay vỡ nét.
-   - **Tách biệt hoàn toàn với dịch Text**: Dịch văn bản bôi đen (F8) vẫn dùng popup nhỏ gọn 420px; còn dịch ảnh (F9) sở hữu không gian riêng rộng rãi, chuyên nghiệp.
-   - **Bộ công cụ trực quan**:
-     - `1:1 Gốc / Vừa khung`: Chuyển đổi giữa kích thước 100% pixel gốc và tự co vừa màn hình.
-     - `[-] / [+]`: Tùy ý phóng to / thu nhỏ tỉ lệ ảnh (50% - 250%).
-     - `[A-] / [A+]`: Tùy chỉnh cỡ chữ dịch đè lên ảnh (60% - 150%).
-     - `[So sánh (Original)]`: Nhấn giữ hoặc bấm để xem ảnh gốc trước khi dịch.
-     - `[Visual / Text]`: Chuyển đổi linh hoạt giữa chế độ xem ảnh đè chữ trực quan và chế độ xem văn bản thuần 2 cột.
-     - `[Copy Ảnh]`: Sao chép ảnh đã dịch vào clipboard để dán thẳng vào Zalo, Messenger, Word,...
-     - `[Tải ảnh PNG]`: Lưu file ảnh đã dịch về máy tính.
-     - `[Ghim (Pin)]`: Ghim cửa sổ trên cùng để không tự đóng khi bấm ra ngoài.
-   - **Nút Compare (Original):** Bấm để so sánh đối chiếu giữa ảnh dịch và ảnh gốc ban đầu.
-   - **Click vào bong bóng chat bất kỳ:** Tự động copy câu dịch của đoạn chat đó.
-   - **Nút Copy Image:** Sao chép thẳng bức ảnh đã dịch vào Clipboard để dán (Ctrl+V) ngay vào tin nhắn hoặc tài liệu.
-   - **Chuyển chế độ xem:** Có nút chuyển nhanh giữa tab `Visual` (Xem ảnh dịch đè) và tab `Text` (Xem dạng văn bản thuần).
+### 2.2. Chụp & Dịch ảnh bằng Multimodal Vision AI (Phím tắt: `F9`)
+Áp dụng cho mọi nội dung trực quan (Đoạn chat Messenger, KakaoTalk, Telegram, Zalo, tài liệu PDF scan, slide thuyết trình, biểu đồ, bảng giá,...):
+1. Nhấn phím **`F9`** (hoặc click icon chụp ảnh trên thanh công cụ).
+2. Màn hình sẽ tối mờ kèm con trỏ `+`. **Kéo giữ chuột trái** để khoanh vùng hình ảnh cần dịch.
+3. Khi bạn **thả chuột trái**, ứng dụng sẽ tự động kích hoạt **AI Vision Translator (Multimodal Gemma 4)**:
+   - **Gửi ảnh trực tiếp vào Model Vision**: Bỏ qua hoàn toàn công nghệ OCR cổ điển (vốn hay sai chữ, lệch font). Model AI sẽ "nhìn" toàn bộ bức ảnh, tự nhận diện người nói, thời gian, ngữ cảnh để dịch chuẩn xác như người đọc.
+   - **Giao diện Split-View (Đối chiếu Song Song)**:
+     - **Cột bên trái:** Hiển thị bức ảnh gốc vừa chụp với đầy đủ công cụ phóng to/thu nhỏ (`Zoom In / Zoom Out / Fit`).
+     - **Cột bên phải:** Bản dịch Markdown cao cấp được stream từng chữ theo thời gian thực (giữ nguyên cấu trúc `[Tên người]`, `(Thời gian)`, các gạch đầu dòng và định dạng hội thoại).
+   - **Bộ công cụ tiện ích trên thanh Header**:
+     - `Dropdown Ngôn ngữ`: Đổi nhanh sang Tiếng Việt, Anh, Hàn, Nhật, Trung, Pháp, Đức,...
+     - `Copy Translation`: Copy toàn bộ bản dịch tiếng Việt sang Clipboard.
+     - `Text-to-Speech (Loa)`: Nghe phát âm bản dịch.
+     - `Copy Image / Save Image`: Copy hoặc tải ảnh chụp gốc.
+     - `Regenerate (Xoay 🔄)`: Dịch lại nếu cần.
+     - `Ghim (Pin 📌)`: Ghim cửa sổ nổi trên cùng.
 
 ---
 

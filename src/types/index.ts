@@ -101,6 +101,12 @@ export interface VisualTranslationPayload {
   targetLanguage: string;
 }
 
+export interface VisionTranslatePayload {
+  imagePreview: string;
+  targetLanguage: string;
+  translatedText?: string;
+}
+
 export interface TranslationHistoryItem {
   id: string;
   originalText: string;
