@@ -1,4 +1,4 @@
-import { AppSettings, TranslationHistoryItem, SnipCapturePayload, SnipSelectionResult, OcrStatePayload, VisualTranslationPayload, UpdateCheckResult } from '../types';
+import { AppSettings, TranslationHistoryItem, SnipCapturePayload, SnipSelectionResult, OcrStatePayload, VisualTranslationPayload, UpdateCheckResult, QuickReplyPayload, ReplyTone } from '../types';
 
 declare global {
   interface Window {
@@ -134,6 +134,79 @@ export const api = {
       return await (window.electronAPI as any).getLatestVisionSnippet();
     }
     return null;
+  },
+
+  // Quick Chat Reply & Replace (Outgoing Translation)
+  onInitQuickReply: (callback: (data: QuickReplyPayload) => void) => {
+    if (window.electronAPI && (window.electronAPI as any).onInitQuickReply) {
+      return (window.electronAPI as any).onInitQuickReply(callback);
+    }
+    return () => {};
+  },
+
+  onReplyTranslateChunk: (callback: (chunk: string) => void) => {
+    if (window.electronAPI && (window.electronAPI as any).onReplyTranslateChunk) {
+      return (window.electronAPI as any).onReplyTranslateChunk(callback);
+    }
+    return () => {};
+  },
+
+  onReplyTranslateComplete: (callback: (fullText: string) => void) => {
+    if (window.electronAPI && (window.electronAPI as any).onReplyTranslateComplete) {
+      return (window.electronAPI as any).onReplyTranslateComplete(callback);
+    }
+    return () => {};
+  },
+
+  onReplyTranslateError: (callback: (error: string) => void) => {
+    if (window.electronAPI && (window.electronAPI as any).onReplyTranslateError) {
+      return (window.electronAPI as any).onReplyTranslateError(callback);
+    }
+    return () => {};
+  },
+
+  startReplyTranslation: (data: { text: string; targetLang: string; tone: ReplyTone }) => {
+    if (window.electronAPI && (window.electronAPI as any).startReplyTranslation) {
+      (window.electronAPI as any).startReplyTranslation(data);
+    }
+  },
+
+  cancelReplyTranslation: () => {
+    if (window.electronAPI && (window.electronAPI as any).cancelReplyTranslation) {
+      (window.electronAPI as any).cancelReplyTranslation();
+    }
+  },
+
+  confirmReplyReplace: (translatedText: string) => {
+    if (window.electronAPI && (window.electronAPI as any).confirmReplyReplace) {
+      (window.electronAPI as any).confirmReplyReplace(translatedText);
+    }
+  },
+
+  closeReplyDialog: () => {
+    if (window.electronAPI && (window.electronAPI as any).closeReplyDialog) {
+      (window.electronAPI as any).closeReplyDialog();
+    }
+  },
+
+  setReplyPinned: (pinned: boolean) => {
+    if (window.electronAPI && (window.electronAPI as any).setReplyPinned) {
+      (window.electronAPI as any).setReplyPinned(pinned);
+    }
+  },
+
+  getLatestReplySnippet: async (): Promise<QuickReplyPayload | null> => {
+    if (window.electronAPI && (window.electronAPI as any).getLatestReplySnippet) {
+      return await (window.electronAPI as any).getLatestReplySnippet();
+    }
+    return null;
+  },
+
+  onReplyConfirmHotkey: (callback: () => void) => {
+    if (window.electronAPI && (window.electronAPI as any).onReplyConfirmHotkey) {
+      return (window.electronAPI as any).onReplyConfirmHotkey(callback);
+    }
+    return () => {};
   },
 
   onOcrStateChange: (callback: (data: OcrStatePayload) => void) => {

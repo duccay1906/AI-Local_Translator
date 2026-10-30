@@ -1,8 +1,8 @@
 {
-  "version": "1.0.5",
+  "version": "1.0.6",
   "releaseDate": "2026-10-30",
-  "downloadUrl": "AI_Local_Translator_Setup_1.0.5.exe",
-  "installerUrl": "AI_Local_Translator_Setup_1.0.5.exe",
-  "portableUrl": "AI_Local_Translator_1.0.5.exe",
-  "releaseNotes": "Fix cold-boot F9 image preview race condition by pre-warming window and adding dual-channel sync"
+  "downloadUrl": "AI_Local_Translator_Setup_1.0.6.exe",
+  "installerUrl": "AI_Local_Translator_Setup_1.0.6.exe",
+  "portableUrl": "AI_Local_Translator_1.0.6.exe",
+  "releaseNotes": "• Quick Chat Reply & Replace (F10): Translate outgoing chat messages in-place with live AI preview, tone selector (Polite/Business, Standard, Casual), and instant replacement via Enter.\n• AI Vision Screen Translation (F9): Upgraded to direct multimodal Vision AI with split-view layout, mouse wheel zoom & drag-to-pan controls, and Rich Markdown Preview.\n• Improved text capture reliability across Windows 11 browsers and chat applications.\n• Standardized clean English UI status indicators and seamless background auto-update."
 }

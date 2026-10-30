@@ -486,7 +486,7 @@ export const SettingsModal: React.FC = () => {
                       onChange={(newShortcut) => setSettings({ ...settings, ocrHotkey: newShortcut })} 
                     />
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Drag area to OCR & translate</span>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Drag area to translate image</span>
                       {(settings.ocrHotkey && settings.ocrHotkey !== 'F9') && (
                         <button
                           type="button"
@@ -508,7 +508,59 @@ export const SettingsModal: React.FC = () => {
 
                   <div>
                     <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
-                      Default Target Language (Translate To):
+                      Quick Chat Reply & Replace Hotkey:
+                    </label>
+                    <HotkeyRecorder 
+                      value={settings.replyHotkey || 'F10'} 
+                      onChange={(newShortcut) => setSettings({ ...settings, replyHotkey: newShortcut })} 
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Translate chat input & replace on Enter</span>
+                      {(settings.replyHotkey && settings.replyHotkey !== 'F10') && (
+                        <button
+                          type="button"
+                          onClick={() => setSettings({ ...settings, replyHotkey: 'F10' })}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--accent-primary)',
+                            fontSize: '11px',
+                            cursor: 'pointer',
+                            textDecoration: 'underline',
+                          }}
+                        >
+                          Reset to F10
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                      Outgoing Chat Language (Reply To):
+                    </label>
+                    <select 
+                      className="form-select"
+                      value={settings.outgoingLanguage || 'Korean'}
+                      onChange={(e) => setSettings({ ...settings, outgoingLanguage: e.target.value })}
+                    >
+                      <option value="Korean">Korean (한국어)</option>
+                      <option value="English">English</option>
+                      <option value="Japanese">Japanese (日本語)</option>
+                      <option value="Chinese (Simplified)">Chinese (中文)</option>
+                      <option value="Vietnamese">Vietnamese (Tiếng Việt)</option>
+                      <option value="French">French (Français)</option>
+                      <option value="German">German (Deutsch)</option>
+                      <option value="Spanish">Spanish (Español)</option>
+                    </select>
+                    <div style={{ marginTop: '6px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Default target language when using F10 Reply</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                      Default Reading Language (F8 / F9):
                     </label>
                     <select 
                       className="form-select"

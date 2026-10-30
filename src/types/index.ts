@@ -1,6 +1,7 @@
 export type TriggerMode = 'hotkey' | 'auto_selection' | 'both';
 export type AppTheme = 'dark' | 'light' | 'glass';
 export type ReasoningEffort = 'none' | 'low' | 'medium' | 'high';
+export type ReplyTone = 'polite' | 'standard' | 'casual';
 
 export interface AppSettings {
   lmStudioUrl: string;
@@ -11,6 +12,9 @@ export interface AppSettings {
   hotkey: string;
   ocrHotkey?: string;
   ocrLanguage?: string;
+  replyHotkey?: string;
+  outgoingLanguage?: string;
+  outgoingTone?: ReplyTone;
   reasoningEffort?: ReasoningEffort;
   autoStartWithWindows?: boolean;
   autoCopySelection: boolean;
@@ -105,6 +109,12 @@ export interface VisionTranslatePayload {
   imagePreview: string;
   targetLanguage: string;
   translatedText?: string;
+}
+
+export interface QuickReplyPayload {
+  sourceText: string;
+  targetLanguage: string;
+  tone: ReplyTone;
 }
 
 export interface TranslationHistoryItem {

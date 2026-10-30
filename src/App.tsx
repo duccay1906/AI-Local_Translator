@@ -4,6 +4,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { SplashScreen } from './components/SplashScreen';
 import { SnipOverlay } from './components/SnipOverlay';
 import { OcrDialog } from './components/OcrDialog';
+import { QuickReplyDialog } from './components/QuickReplyDialog';
 
 export const App: React.FC = () => {
   const [route, setRoute] = useState<string>(window.location.hash);
@@ -30,6 +31,10 @@ export const App: React.FC = () => {
 
   if (route === '#ocr') {
     return <OcrDialog />;
+  }
+
+  if (route === '#reply') {
+    return <QuickReplyDialog />;
   }
 
   return <FloatingPopup />;

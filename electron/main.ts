@@ -5,18 +5,22 @@ import { exec, execFile } from 'child_process';
 import { streamTranslation, fetchAvailableModels, translateBlocks, streamVisionTranslation } from './lmstudio';
 import { extractTextFromImage, extractTextAndBlocksFromImage, terminateOcrWorker } from './ocr';
 import { checkForUpdates, downloadUpdate, applyUpdateAndRestart } from './updater';
-import { AppSettings, TranslationHistoryItem, SnipSelectionResult } from '../src/types';
+import { AppSettings, TranslationHistoryItem, SnipSelectionResult, ReplyTone, QuickReplyPayload } from '../src/types';
 
 let popupWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
 let splashWindow: BrowserWindow | null = null;
 let snipWindow: BrowserWindow | null = null;
 let ocrDialogWindow: BrowserWindow | null = null;
+let replyWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let currentAbortController: { abort: () => void } | null = null;
 let currentVisionAbortController: { abort: () => void } | null = null;
+let currentReplyAbortController: { abort: () => void } | null = null;
 let lastCapturedScreen: Electron.NativeImage | null = null;
 let lastVisionSnippet: { imagePreview: string; targetLanguage: string } | null = null;
+let lastReplySnippet: QuickReplyPayload | null = null;
+let lastReplyWasSelectAll = false;
 
 const TRAY_ICON_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAIhSURBVHgB7VdNSgMxEE5CQRBEFAURF0IXLlzozkV6A0HQrVt3XkBw57gRF64giLhzEUEEwZ3ozGfSznTa3el0MplJvvC9N/OStvPhfV+j0aitpuksmqYLWJaV9i1d/2/v/RFFUSNJkiBv3uLzeDxe961f7oF4f3ccZ9cwt2mapq0bHMe5H9f2913A8zzj1fO8T3XnOI42DEPtdzW1Wq1aqvPj+n0+n7e8yN7vd9s/Dk3TNHWapla92u/3q+12e1o0mUyo67pWr9er1WpllUql3+/1eu3b7bZbLpcuTdNM4zj2eL4v2vUie55nfV9b12q1qlQq2Xg8tmazuS63222r1Wp6vV623W51s9nYu9f3/a+tVutv6z8N/C+aTqdH2/ZyuVRv1+t1bTQalTqdTqVer/9N90d/v98fyul00qXxeFwq/qJ6vV6rUqm0qFar/crL5VIJISLqdruVGo1GpWq1+qu7TqdTy3U9r1Yr+z/0arWyaDTq1Wq1tFqt/uo8l0slhGihNpvNWvb9ft+Gw+HS5w73+32H8/lcs+Vyaf1+n3ndzGazaavVqq3X66W73e6w+w3/6/5v96vxeGy3281m8/ldj8ej9fs9m80d8z8fVqvV0s1mwzybz2d5f/Rer2dr3jFf9ffo3/t1/6u+t9tNlcvl8p89P/F8Pi+t12ur67odf1mSJD6K12p+/wT8e8Q/y89X4y911EwAAAAASUVORK5CYII=';
 
@@ -94,6 +98,9 @@ const defaultSettings: AppSettings = {
   hotkey: 'F8',
   ocrHotkey: 'F9',
   ocrLanguage: 'auto',
+  replyHotkey: 'F10',
+  outgoingLanguage: 'Korean',
+  outgoingTone: 'polite',
   reasoningEffort: 'none',
   autoStartWithWindows: true,
   autoCopySelection: true,
@@ -340,6 +347,125 @@ function hideOcrDialogWindow() {
   }
 }
 
+function createReplyWindow(): BrowserWindow {
+  if (replyWindow && !replyWindow.isDestroyed()) {
+    return replyWindow;
+  }
+
+  replyWindow = new BrowserWindow({
+    width: 480,
+    height: 360,
+    minWidth: 420,
+    minHeight: 310,
+    show: false,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: true,
+    icon: appIcon,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  const isDev = !app.isPackaged && process.env.VITE_DEV_SERVER_URL;
+  if (isDev) {
+    replyWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}#reply`);
+  } else {
+    replyWindow.loadFile(path.join(__dirname, '../dist/index.html'), { hash: 'reply' });
+  }
+
+  replyWindow.webContents.on('before-input-event', (_, input) => {
+    const key = (input.key || '').toLowerCase();
+    const code = (input.code || '').toLowerCase();
+    if (key === 'escape' || key === 'esc' || code === 'escape') {
+      hideReplyWindow();
+    }
+  });
+
+  replyWindow.on('focus', () => {
+    if (replyWindow && !replyWindow.isDestroyed() && replyWindow.isVisible()) {
+      registerReplyActionShortcuts();
+    }
+  });
+
+  replyWindow.on('blur', () => {
+    if (Date.now() - replyShownTimestamp < 300) return;
+    if (replyWindow && !replyWindow.isDestroyed() && !(replyWindow as any).isPinned) {
+      hideReplyWindow();
+    } else {
+      unregisterReplyActionShortcuts();
+    }
+  });
+
+  replyWindow.on('closed', () => {
+    replyWindow = null;
+  });
+
+  return replyWindow;
+}
+
+let replyShownTimestamp = 0;
+
+function registerReplyActionShortcuts() {
+  try {
+    globalShortcut.unregister('Escape');
+  } catch (e) {}
+  try {
+    globalShortcut.unregister('Return');
+  } catch (e) {}
+
+  try {
+    globalShortcut.register('Escape', () => {
+      if (replyWindow && !replyWindow.isDestroyed() && replyWindow.isVisible()) {
+        hideReplyWindow();
+        return;
+      }
+      if (snipWindow && !snipWindow.isDestroyed() && snipWindow.isVisible()) {
+        hideSnipWindow();
+        return;
+      }
+      hidePopupWindow();
+    });
+  } catch (e) {
+    console.warn('Failed to register global Escape for reply:', e);
+  }
+
+  try {
+    globalShortcut.register('Return', () => {
+      if (replyWindow && !replyWindow.isDestroyed() && replyWindow.isVisible()) {
+        replyWindow.webContents.send('reply-confirm-hotkey');
+      }
+    });
+  } catch (e) {
+    console.warn('Failed to register global Return for reply:', e);
+  }
+}
+
+function unregisterReplyActionShortcuts() {
+  try {
+    globalShortcut.unregister('Return');
+  } catch (e) {}
+  try {
+    if (
+      (!popupWindow || popupWindow.isDestroyed() || !popupWindow.isVisible()) &&
+      (!snipWindow || snipWindow.isDestroyed() || !snipWindow.isVisible())
+    ) {
+      globalShortcut.unregister('Escape');
+    }
+  } catch (e) {}
+}
+
+function hideReplyWindow() {
+  unregisterReplyActionShortcuts();
+  if (replyWindow && !replyWindow.isDestroyed()) {
+    replyWindow.hide();
+  }
+}
+
 function createSettingsWindow(initialTab?: string) {
   const hash = initialTab ? `settings?tab=${initialTab}` : 'settings';
   if (settingsWindow) {
@@ -424,6 +550,10 @@ function updateTrayMenu() {
       label: '📷 Screen OCR Translate (Dịch vùng ảnh)',
       click: () => triggerOcrSnipFlow(),
     },
+    {
+      label: '💬 Quick Chat Reply & Replace',
+      click: () => triggerQuickReplyFlow(),
+    },
     { type: 'separator' },
     {
       label: `🌐 Target Language: ${activeSettings.targetLanguage}`,
@@ -435,6 +565,10 @@ function updateTrayMenu() {
     },
     {
       label: `📷 OCR Shortcut: ${activeSettings.ocrHotkey || 'F9'}`,
+      enabled: false,
+    },
+    {
+      label: `💬 Reply Shortcut: ${activeSettings.replyHotkey || 'F10'}`,
       enabled: false,
     },
     { type: 'separator' },
@@ -464,47 +598,76 @@ function updateTrayMenu() {
 const vbsPath = path.join(app.getPath('userData'), 'send_copy.vbs');
 const fallbackVbsPath = path.join(app.getPath('temp'), 'send_copy.vbs');
 
-function initVbsHelper() {
-  const vbsContent = 'WScript.Sleep 150\r\nSet WshShell = WScript.CreateObject("WScript.Shell")\r\nWshShell.SendKeys "^c"';
+const vbsSelectCopyPath = path.join(app.getPath('userData'), 'send_select_copy.vbs');
+const fallbackVbsSelectCopyPath = path.join(app.getPath('temp'), 'send_select_copy.vbs');
+
+const vbsPastePath = path.join(app.getPath('userData'), 'send_paste.vbs');
+const fallbackVbsPastePath = path.join(app.getPath('temp'), 'send_paste.vbs');
+
+const vbsSelectPastePath = path.join(app.getPath('userData'), 'send_select_paste.vbs');
+const fallbackVbsSelectPastePath = path.join(app.getPath('temp'), 'send_select_paste.vbs');
+
+function writeVbsPair(primary: string, fallback: string, content: string) {
   try {
-    fs.writeFileSync(vbsPath, vbsContent, 'utf-8');
+    fs.writeFileSync(primary, content, 'utf-8');
   } catch (err) {
     console.error('Failed to write primary VBS helper:', err);
   }
   try {
-    fs.writeFileSync(fallbackVbsPath, vbsContent, 'utf-8');
+    fs.writeFileSync(fallback, content, 'utf-8');
   } catch (e) {}
+}
+
+function initVbsHelper() {
+  const copyContent = 'WScript.Sleep 120\r\nSet WshShell = WScript.CreateObject("WScript.Shell")\r\nWshShell.SendKeys "^c"';
+  const selectCopyContent = 'WScript.Sleep 90\r\nSet WshShell = WScript.CreateObject("WScript.Shell")\r\nWshShell.SendKeys "^a"\r\nWScript.Sleep 60\r\nWshShell.SendKeys "^c"';
+  const pasteContent = 'WScript.Sleep 120\r\nSet WshShell = WScript.CreateObject("WScript.Shell")\r\nWshShell.SendKeys "^v"';
+  const selectPasteContent = 'WScript.Sleep 120\r\nSet WshShell = WScript.CreateObject("WScript.Shell")\r\nWshShell.SendKeys "^a"\r\nWScript.Sleep 50\r\nWshShell.SendKeys "^v"';
+
+  writeVbsPair(vbsPath, fallbackVbsPath, copyContent);
+  writeVbsPair(vbsSelectCopyPath, fallbackVbsSelectCopyPath, selectCopyContent);
+  writeVbsPair(vbsPastePath, fallbackVbsPastePath, pasteContent);
+  writeVbsPair(vbsSelectPastePath, fallbackVbsSelectPastePath, selectPasteContent);
+}
+
+async function runVbsHelper(primary: string, fallback: string): Promise<void> {
+  const scriptToUse = fs.existsSync(primary) ? primary : fallback;
+  await new Promise<void>((resolve) => {
+    // Use wscript.exe (GUI subsystem) + windowsHide so Windows Terminal never steals focus from active window
+    execFile('wscript.exe', ['//B', '//Nologo', scriptToUse], { windowsHide: true }, (error) => {
+      if (error) {
+        console.warn('wscript execution warning:', error.message);
+      }
+      resolve();
+    });
+  });
+}
+
+async function pollClipboardText(maxWaitMs = 250): Promise<string> {
+  let captured = clipboard.readText();
+  if (captured && captured.trim()) {
+    return captured.trim();
+  }
+  const steps = Math.ceil(maxWaitMs / 50);
+  for (let i = 0; i < steps; i++) {
+    await new Promise((r) => setTimeout(r, 50));
+    captured = clipboard.readText();
+    if (captured && captured.trim()) {
+      return captured.trim();
+    }
+  }
+  return '';
 }
 
 async function captureSelectedText(): Promise<string> {
   const previousText = clipboard.readText();
   clipboard.clear();
 
-  const scriptToUse = fs.existsSync(vbsPath) ? vbsPath : fallbackVbsPath;
+  await runVbsHelper(vbsPath, fallbackVbsPath);
 
-  // Execute directly with execFile (bypasses cmd.exe to prevent Unicode/space path corruption)
-  await new Promise<void>((resolve) => {
-    execFile('cscript.exe', ['//nologo', scriptToUse], (error) => {
-      if (error) {
-        console.warn('cscript copy execution warning:', error.message);
-      }
-      resolve();
-    });
-  });
-
-  // Check if clipboard received new text
-  let captured = clipboard.readText();
-  if (captured && captured.trim()) {
-    return captured.trim();
-  }
-
-  // Poll for up to 250ms in case the target app (e.g. Word, heavy PDF, Chrome) takes time to write to clipboard
-  for (let i = 0; i < 5; i++) {
-    await new Promise((r) => setTimeout(r, 50));
-    captured = clipboard.readText();
-    if (captured && captured.trim()) {
-      return captured.trim();
-    }
+  const captured = await pollClipboardText(250);
+  if (captured) {
+    return captured;
   }
 
   // If no new text was captured, restore previous clipboard so user data is not lost
@@ -514,6 +677,47 @@ async function captureSelectedText(): Promise<string> {
   }
 
   return '';
+}
+
+async function captureChatInputText(): Promise<string> {
+  const previousText = clipboard.readText();
+  clipboard.clear();
+
+  // 1. First check if user already highlighted a specific portion of text
+  await runVbsHelper(vbsPath, fallbackVbsPath);
+  let captured = await pollClipboardText(180);
+  if (captured) {
+    lastReplyWasSelectAll = false;
+    return captured;
+  }
+
+  // 2. If nothing was highlighted, user is typing in a chat input box: auto-select all (Ctrl+A) and copy (Ctrl+C)
+  await runVbsHelper(vbsSelectCopyPath, fallbackVbsSelectCopyPath);
+  captured = await pollClipboardText(250);
+  if (captured) {
+    lastReplyWasSelectAll = true;
+    return captured;
+  }
+
+  // Restore previous clipboard if input box was empty
+  if (previousText) {
+    clipboard.writeText(previousText);
+  }
+  lastReplyWasSelectAll = false;
+  return '';
+}
+
+async function replaceTextInActiveChat(translatedText: string) {
+  if (!translatedText || !translatedText.trim()) return;
+
+  clipboard.writeText(translatedText.trim());
+  hideReplyWindow();
+
+  if (lastReplyWasSelectAll) {
+    await runVbsHelper(vbsSelectPastePath, fallbackVbsSelectPastePath);
+  } else {
+    await runVbsHelper(vbsPastePath, fallbackVbsPastePath);
+  }
 }
 
 function hidePopupWindow() {
@@ -672,6 +876,149 @@ async function triggerOcrSnipFlow() {
   }
 }
 
+async function startReplyStream(text: string, targetLang: string, tone: ReplyTone) {
+  if (currentReplyAbortController) {
+    currentReplyAbortController.abort();
+    currentReplyAbortController = null;
+  }
+
+  if (!text || !text.trim()) return;
+
+  // Persist user's outgoing language and tone preference
+  if (targetLang !== activeSettings.outgoingLanguage || tone !== activeSettings.outgoingTone) {
+    activeSettings.outgoingLanguage = targetLang;
+    activeSettings.outgoingTone = tone;
+    saveSettingsToDisk(activeSettings);
+  }
+
+  try {
+    currentReplyAbortController = await streamTranslation({
+      baseUrl: activeSettings.lmStudioUrl,
+      model: activeSettings.modelName,
+      text: text.trim(),
+      targetLanguage: targetLang,
+      reasoningEffort: activeSettings.reasoningEffort || 'none',
+      tone,
+      onChunk: (chunk) => {
+        replyWindow?.webContents.send('reply-translate-chunk', chunk);
+      },
+      onComplete: (fullText) => {
+        replyWindow?.webContents.send('reply-translate-complete', fullText);
+
+        const history = loadHistory();
+        saveHistoryToDisk([
+          {
+            id: Date.now().toString(),
+            originalText: text.trim(),
+            translatedText: fullText,
+            targetLanguage: `${targetLang} (${tone})`,
+            timestamp: Date.now(),
+          },
+          ...history,
+        ]);
+      },
+      onError: (err) => {
+        replyWindow?.webContents.send(
+          'reply-translate-error',
+          err.message || 'Could not connect to translation service'
+        );
+      },
+    });
+  } catch (err: any) {
+    replyWindow?.webContents.send(
+      'reply-translate-error',
+      err.message || 'Could not connect to translation service'
+    );
+  }
+}
+
+async function triggerQuickReplyFlow() {
+  try {
+    // Capture text currently in the active chat input box (or highlighted selection)
+    const capturedText = await captureChatInputText();
+
+    if (!replyWindow || replyWindow.isDestroyed()) {
+      createReplyWindow();
+    }
+
+    const cursor = screen.getCursorScreenPoint();
+    const display = screen.getDisplayNearestPoint(cursor);
+    const winW = 480;
+    const winH = 360;
+
+    let posX = cursor.x - Math.round(winW / 2);
+    let posY = cursor.y - winH - 20;
+
+    if (posY < display.workArea.y + 10) {
+      posY = cursor.y + 20;
+    }
+    posX = Math.max(
+      display.workArea.x + 10,
+      Math.min(posX, display.workArea.x + display.workArea.width - winW - 10)
+    );
+    posY = Math.max(
+      display.workArea.y + 10,
+      Math.min(posY, display.workArea.y + display.workArea.height - winH - 10)
+    );
+
+    // Hide other app windows so focus cleanly returns to the target chat app when Reply dialog closes
+    if (settingsWindow && !settingsWindow.isDestroyed() && settingsWindow.isVisible()) {
+      settingsWindow.hide();
+    }
+    if (popupWindow && !popupWindow.isDestroyed() && popupWindow.isVisible() && !(popupWindow as any).isPinned) {
+      popupWindow.hide();
+    }
+
+    replyShownTimestamp = Date.now();
+    replyWindow!.setBounds({ x: posX, y: posY, width: winW, height: winH });
+    app.focus({ steal: true });
+    replyWindow!.show();
+    replyWindow!.setAlwaysOnTop(true, 'pop-up-menu');
+    replyWindow!.focus();
+    replyWindow!.webContents.focus();
+    registerReplyActionShortcuts();
+
+    setTimeout(() => {
+      if (replyWindow && !replyWindow.isDestroyed() && replyWindow.isVisible()) {
+        replyWindow.focus();
+        replyWindow.webContents.focus();
+        registerReplyActionShortcuts();
+      }
+    }, 60);
+
+    const outgoingLang = activeSettings.outgoingLanguage || 'Korean';
+    const outgoingTone: ReplyTone = activeSettings.outgoingTone || 'polite';
+
+    lastReplySnippet = {
+      sourceText: capturedText,
+      targetLanguage: outgoingLang,
+      tone: outgoingTone,
+    };
+
+    const sendInit = () => {
+      if (replyWindow && !replyWindow.isDestroyed()) {
+        replyWindow.webContents.send('init-quick-reply', lastReplySnippet);
+      }
+    };
+
+    if (replyWindow!.webContents.isLoading()) {
+      replyWindow!.webContents.once('did-finish-load', () => {
+        sendInit();
+        if (capturedText && capturedText.trim()) {
+          startReplyStream(capturedText, outgoingLang, outgoingTone);
+        }
+      });
+    } else {
+      sendInit();
+      if (capturedText && capturedText.trim()) {
+        startReplyStream(capturedText, outgoingLang, outgoingTone);
+      }
+    }
+  } catch (err) {
+    console.error('Failed to trigger quick reply flow:', err);
+  }
+}
+
 function registerHotkeys() {
   globalShortcut.unregisterAll();
 
@@ -712,6 +1059,30 @@ function registerHotkeys() {
       console.error('OCR hotkey registration error:', err);
     }
   }
+
+  // 3. Register Quick Chat Reply & Replace Hotkey
+  const targetReplyHotkey = activeSettings.replyHotkey || 'F10';
+  if (
+    targetReplyHotkey &&
+    targetReplyHotkey !== targetHotkey &&
+    targetReplyHotkey !== targetOcrHotkey
+  ) {
+    try {
+      const okReply = globalShortcut.register(targetReplyHotkey, () => {
+        triggerQuickReplyFlow();
+      });
+      if (okReply) {
+        console.log(`Global Reply hotkey ${targetReplyHotkey} registered successfully.`);
+      } else {
+        console.warn(`${targetReplyHotkey} Reply hotkey failed to register, falling back to F10...`);
+        if (targetReplyHotkey !== 'F10' && targetHotkey !== 'F10' && targetOcrHotkey !== 'F10') {
+          globalShortcut.register('F10', () => triggerQuickReplyFlow());
+        }
+      }
+    } catch (err) {
+      console.error('Reply hotkey registration error:', err);
+    }
+  }
 }
 
 // App lifecycle
@@ -725,6 +1096,7 @@ app.whenReady().then(() => {
   createPopupWindow();
   createSnipWindow();
   createOcrDialogWindow();
+  createReplyWindow();
   if (!isHiddenBoot) {
     createSettingsWindow();
   }
@@ -1143,4 +1515,48 @@ ipcMain.on('cancel-translation', () => {
     currentAbortController.abort();
     currentAbortController = null;
   }
+});
+
+// Quick Chat Reply & Replace IPC Handlers
+ipcMain.on(
+  'start-reply-translation',
+  async (_, { text, targetLang, tone }: { text: string; targetLang: string; tone: ReplyTone }) => {
+    const lang = targetLang || activeSettings.outgoingLanguage || 'Korean';
+    const activeTone = tone || activeSettings.outgoingTone || 'polite';
+    await startReplyStream(text, lang, activeTone);
+  }
+);
+
+ipcMain.on('cancel-reply-translation', () => {
+  if (currentReplyAbortController) {
+    currentReplyAbortController.abort();
+    currentReplyAbortController = null;
+  }
+});
+
+ipcMain.on('confirm-reply-replace', async (_, translatedText: string) => {
+  if (currentReplyAbortController) {
+    currentReplyAbortController.abort();
+    currentReplyAbortController = null;
+  }
+  await replaceTextInActiveChat(translatedText);
+});
+
+ipcMain.on('close-reply-dialog', () => {
+  if (currentReplyAbortController) {
+    currentReplyAbortController.abort();
+    currentReplyAbortController = null;
+  }
+  hideReplyWindow();
+});
+
+ipcMain.on('set-reply-pinned', (_, pinned: boolean) => {
+  if (replyWindow && !replyWindow.isDestroyed()) {
+    (replyWindow as any).isPinned = pinned;
+    replyWindow.setAlwaysOnTop(true, pinned ? 'screen-saver' : 'pop-up-menu');
+  }
+});
+
+ipcMain.handle('get-latest-reply-snippet', () => {
+  return lastReplySnippet;
 });

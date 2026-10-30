@@ -65,6 +65,51 @@ const electronAPI = {
     return ipcRenderer.invoke('get-latest-vision-snippet');
   },
 
+  // Quick Chat Reply & Replace (Outgoing Translation)
+  onInitQuickReply: (callback: (data: { sourceText: string; targetLanguage: string; tone: 'polite' | 'standard' | 'casual' }) => void) => {
+    const listener = (_: any, data: any) => callback(data);
+    ipcRenderer.on('init-quick-reply', listener);
+    return () => ipcRenderer.removeListener('init-quick-reply', listener);
+  },
+  onReplyTranslateChunk: (callback: (chunk: string) => void) => {
+    const listener = (_: any, chunk: string) => callback(chunk);
+    ipcRenderer.on('reply-translate-chunk', listener);
+    return () => ipcRenderer.removeListener('reply-translate-chunk', listener);
+  },
+  onReplyTranslateComplete: (callback: (fullText: string) => void) => {
+    const listener = (_: any, fullText: string) => callback(fullText);
+    ipcRenderer.on('reply-translate-complete', listener);
+    return () => ipcRenderer.removeListener('reply-translate-complete', listener);
+  },
+  onReplyTranslateError: (callback: (error: string) => void) => {
+    const listener = (_: any, error: string) => callback(error);
+    ipcRenderer.on('reply-translate-error', listener);
+    return () => ipcRenderer.removeListener('reply-translate-error', listener);
+  },
+  startReplyTranslation: (data: { text: string; targetLang: string; tone: 'polite' | 'standard' | 'casual' }) => {
+    ipcRenderer.send('start-reply-translation', data);
+  },
+  cancelReplyTranslation: () => {
+    ipcRenderer.send('cancel-reply-translation');
+  },
+  confirmReplyReplace: (translatedText: string) => {
+    ipcRenderer.send('confirm-reply-replace', translatedText);
+  },
+  closeReplyDialog: () => {
+    ipcRenderer.send('close-reply-dialog');
+  },
+  setReplyPinned: (pinned: boolean) => {
+    ipcRenderer.send('set-reply-pinned', pinned);
+  },
+  getLatestReplySnippet: () => {
+    return ipcRenderer.invoke('get-latest-reply-snippet');
+  },
+  onReplyConfirmHotkey: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on('reply-confirm-hotkey', listener);
+    return () => ipcRenderer.removeListener('reply-confirm-hotkey', listener);
+  },
+
   // OCR Status & Snipping Overlay IPC
   onOcrStateChange: (callback: (data: { status: 'processing' | 'done' | 'error'; message?: string; imagePreview?: string }) => void) => {
     const listener = (_: any, data: { status: 'processing' | 'done' | 'error'; message?: string; imagePreview?: string }) => callback(data);

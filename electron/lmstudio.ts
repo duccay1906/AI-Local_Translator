@@ -11,6 +11,7 @@ export interface StreamTranslateParams {
   targetLanguage: string;
   systemPromptTemplate?: string;
   reasoningEffort?: string;
+  tone?: 'polite' | 'standard' | 'casual';
   onChunk: (chunk: string) => void;
   onComplete: (fullText: string) => void;
   onError: (error: Error) => void;
@@ -71,12 +72,21 @@ export async function fetchAvailableModels(baseUrl: string): Promise<string[]> {
 }
 
 export async function streamTranslation(params: StreamTranslateParams): Promise<{ abort: () => void }> {
-  let { baseUrl, model, text, targetLanguage, systemPromptTemplate, reasoningEffort, onChunk, onComplete, onError } = params;
+  let { baseUrl, model, text, targetLanguage, systemPromptTemplate, reasoningEffort, tone, onChunk, onComplete, onError } = params;
 
-  const defaultSystemPrompt = `You are a professional AI translator. Translate the user's text accurately into ${targetLanguage}. Maintain original tone, formatting, and nuances. Output ONLY the translation without introductory words or notes.`;
-  const systemPrompt = systemPromptTemplate
-    ? systemPromptTemplate.replace('{targetLanguage}', targetLanguage)
-    : defaultSystemPrompt;
+  let systemPrompt = '';
+  if (tone === 'polite') {
+    systemPrompt = `You are an expert bilingual communication assistant. Translate the user's outgoing chat message into ${targetLanguage} using a polite, professional, and respectful business tone (for Korean, use polite honorifics such as -습니다/-해요 appropriately; for Japanese, use polite Desu/Masu/Keigo). Output ONLY the translated message ready to be sent in chat, without quotes, explanations, or notes.`;
+  } else if (tone === 'casual') {
+    systemPrompt = `You are an expert bilingual communication assistant. Translate the user's outgoing chat message into ${targetLanguage} using a friendly, natural, and casual conversational tone suitable for close colleagues or friends. Output ONLY the translated message ready to be sent in chat, without quotes, explanations, or notes.`;
+  } else if (tone === 'standard') {
+    systemPrompt = `You are an expert bilingual communication assistant. Translate the user's outgoing chat message naturally, clearly, and accurately into ${targetLanguage}. Output ONLY the translated message ready to be sent in chat, without quotes, explanations, or notes.`;
+  } else {
+    const defaultSystemPrompt = `You are a professional AI translator. Translate the user's text accurately into ${targetLanguage}. Maintain original tone, formatting, and nuances. Output ONLY the translation without introductory words or notes.`;
+    systemPrompt = systemPromptTemplate
+      ? systemPromptTemplate.replace('{targetLanguage}', targetLanguage)
+      : defaultSystemPrompt;
+  }
 
   const cleanUrl = baseUrl.replace(/\/+$/, '');
   const endpoint = `${cleanUrl}/v1/chat/completions`;
