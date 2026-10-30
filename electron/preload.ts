@@ -101,6 +101,9 @@ const electronAPI = {
   setReplyPinned: (pinned: boolean) => {
     ipcRenderer.send('set-reply-pinned', pinned);
   },
+  setReplyPreference: (prefs: { targetLang: string; tone: 'polite' | 'standard' | 'casual' }) => {
+    ipcRenderer.send('set-reply-preference', prefs);
+  },
   getLatestReplySnippet: () => {
     return ipcRenderer.invoke('get-latest-reply-snippet');
   },

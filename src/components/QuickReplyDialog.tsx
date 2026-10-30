@@ -83,7 +83,9 @@ export const QuickReplyDialog: React.FC = () => {
     if (!trimmed) {
       api.cancelReplyTranslation();
       setTranslatedText('');
+      translatedTextRef.current = '';
       setIsStreaming(false);
+      isStreamingRef.current = false;
       setErrorMessage(null);
       return;
     }
@@ -92,8 +94,10 @@ export const QuickReplyDialog: React.FC = () => {
     lastTranslatedKeyRef.current = requestKey;
 
     setTranslatedText('');
+    translatedTextRef.current = '';
     setErrorMessage(null);
     setIsStreaming(true);
+    isStreamingRef.current = true;
 
     api.startReplyTranslation({
       text: trimmed,
@@ -140,6 +144,7 @@ export const QuickReplyDialog: React.FC = () => {
     });
 
     const cleanupChunk = api.onReplyTranslateChunk((chunk) => {
+      setErrorMessage(null);
       setTranslatedText((prev) => {
         const next = prev + chunk;
         translatedTextRef.current = next;
@@ -205,15 +210,18 @@ export const QuickReplyDialog: React.FC = () => {
 
       // Press Enter (without Shift/Ctrl/Alt) to immediately Replace in Chat if translation is ready
       if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey) {
-        if (translatedText.trim() && !isStreaming) {
+        if (translatedTextRef.current.trim() && !isStreamingRef.current) {
           e.preventDefault();
           handleReplaceInChat();
+        } else if (isStreamingRef.current) {
+          e.preventDefault();
+          pendingAutoReplaceRef.current = true;
         }
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [translatedText, isStreaming]);
 
   const handleSourceTextChange = (newText: string) => {
@@ -226,7 +234,9 @@ export const QuickReplyDialog: React.FC = () => {
     if (!newText.trim()) {
       api.cancelReplyTranslation();
       setTranslatedText('');
+      translatedTextRef.current = '';
       setIsStreaming(false);
+      isStreamingRef.current = false;
       setErrorMessage(null);
       return;
     }
@@ -239,6 +249,10 @@ export const QuickReplyDialog: React.FC = () => {
 
   const handleLanguageChange = (newLang: string) => {
     setTargetLanguage(newLang);
+    api.setReplyPreference({ targetLang: newLang, tone });
+    if (document.activeElement instanceof HTMLElement && document.activeElement.tagName === 'SELECT') {
+      document.activeElement.blur();
+    }
     if (sourceText.trim()) {
       triggerTranslation(sourceText, newLang, tone);
     }
@@ -246,13 +260,14 @@ export const QuickReplyDialog: React.FC = () => {
 
   const handleToneChange = (newTone: ReplyTone) => {
     setTone(newTone);
+    api.setReplyPreference({ targetLang: targetLanguage, tone: newTone });
     if (sourceText.trim()) {
       triggerTranslation(sourceText, targetLanguage, newTone);
     }
   };
 
   const handleReplaceInChat = () => {
-    const finalOutput = translatedText.trim();
+    const finalOutput = (translatedTextRef.current || translatedText).trim();
     if (!finalOutput) return;
     if (window.speechSynthesis) {
       window.speechSynthesis.cancel();
@@ -580,7 +595,10 @@ export const QuickReplyDialog: React.FC = () => {
           ) : (
             <textarea
               value={translatedText}
-              onChange={(e) => setTranslatedText(e.target.value)}
+              onChange={(e) => {
+                setTranslatedText(e.target.value);
+                translatedTextRef.current = e.target.value;
+              }}
               placeholder="Translated preview will appear here..."
               className="selectable"
               style={{

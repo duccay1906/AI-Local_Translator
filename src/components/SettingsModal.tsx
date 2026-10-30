@@ -207,9 +207,22 @@ export const SettingsModal: React.FC = () => {
       }
     });
 
+    const handleWindowFocus = () => {
+      api.getSettings().then((s) => {
+        setSettings((prev) => ({
+          ...prev,
+          outgoingLanguage: s.outgoingLanguage || prev.outgoingLanguage,
+          outgoingTone: s.outgoingTone || prev.outgoingTone,
+          ocrLanguage: s.ocrLanguage || prev.ocrLanguage,
+        }));
+      });
+    };
+    window.addEventListener('focus', handleWindowFocus);
+
     return () => {
       unsubscribeProgress();
       unsubscribeTabSwitch();
+      window.removeEventListener('focus', handleWindowFocus);
     };
   }, []);
 

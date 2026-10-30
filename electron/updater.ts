@@ -212,11 +212,12 @@ export async function downloadUpdate(
  * - If running as Installer: Launches the installer in a hidden/background helper and quits.
  */
 export function applyUpdateAndRestart(downloadedFilePath: string): void {
+  const tempDir = app.getPath('temp');
   const portableExe = process.env.PORTABLE_EXECUTABLE_FILE;
 
   if (portableExe && fs.existsSync(portableExe)) {
     // Portable executable update
-    const tempPs1 = path.join(app.getPath('temp'), `apply_update_${Date.now()}.ps1`);
+    const tempPs1 = path.join(tempDir, `apply_update_${Date.now()}.ps1`);
     const escapedSource = downloadedFilePath.replace(/'/g, "''");
     const escapedTarget = portableExe.replace(/'/g, "''");
 
@@ -224,6 +225,8 @@ export function applyUpdateAndRestart(downloadedFilePath: string): void {
 $source = '${escapedSource}'
 $target = '${escapedTarget}'
 $success = $false
+
+Unblock-File -Path $source -ErrorAction SilentlyContinue
 
 for ($i = 0; $i -lt 30; $i++) {
     try {
@@ -236,7 +239,8 @@ for ($i = 0; $i -lt 30; $i++) {
 }
 
 if ($success) {
-    Start-Process -FilePath $target
+    Unblock-File -Path $target -ErrorAction SilentlyContinue
+    Start-Process -FilePath $target -WorkingDirectory (Split-Path -Parent $target)
 }
 Remove-Item -Path $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
 `;
@@ -250,6 +254,7 @@ Remove-Item -Path $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyConti
       '-ExecutionPolicy', 'Bypass',
       '-File', tempPs1,
     ], {
+      cwd: tempDir,
       detached: true,
       stdio: 'ignore',
       windowsHide: true,
@@ -260,12 +265,13 @@ Remove-Item -Path $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyConti
   }
 
   // Installer update (or normal exe)
-  const tempPs1 = path.join(app.getPath('temp'), `apply_installer_${Date.now()}.ps1`);
+  const tempPs1 = path.join(tempDir, `apply_installer_${Date.now()}.ps1`);
   const escapedInstaller = downloadedFilePath.replace(/'/g, "''");
 
   const scriptContent = `Start-Sleep -Seconds 2
 $installer = '${escapedInstaller}'
-Start-Process -FilePath $installer
+Unblock-File -Path $installer -ErrorAction SilentlyContinue
+Start-Process -FilePath $installer -WorkingDirectory '${tempDir.replace(/'/g, "''")}'
 Remove-Item -Path $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
 `;
 
@@ -278,6 +284,7 @@ Remove-Item -Path $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyConti
     '-ExecutionPolicy', 'Bypass',
     '-File', tempPs1,
   ], {
+    cwd: tempDir,
     detached: true,
     stdio: 'ignore',
     windowsHide: true,

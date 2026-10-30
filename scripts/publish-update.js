@@ -65,8 +65,8 @@ if (portableExe) {
 
 const primaryExe = targetInstaller || targetPortable || releaseFiles[0].replace(/\s+/g, '_');
 
-const releaseNotes = process.argv.slice(2).join(' ') || 
-  `- Version ${version} release.\n- Improved performance, visual OCR dialog enhancements, and bug fixes.`;
+const releaseNotes = (process.argv.slice(2).join(' ') || 
+  `- Version ${version} release.\n- Improved performance, visual OCR dialog enhancements, and bug fixes.`).replace(/\\n/g, '\n');
 
 const manifest = {
   version: version,

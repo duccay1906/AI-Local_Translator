@@ -1,11 +1,18 @@
 import { app, BrowserWindow, globalShortcut, ipcMain, screen, clipboard, Tray, Menu, nativeImage, desktopCapturer, dialog } from 'electron';
 import path from 'path';
 import fs from 'fs';
-import { exec, execFile } from 'child_process';
+import { exec, execFile, spawn, ChildProcess } from 'child_process';
 import { streamTranslation, fetchAvailableModels, translateBlocks, streamVisionTranslation } from './lmstudio';
 import { extractTextFromImage, extractTextAndBlocksFromImage, terminateOcrWorker } from './ocr';
 import { checkForUpdates, downloadUpdate, applyUpdateAndRestart } from './updater';
 import { AppSettings, TranslationHistoryItem, SnipSelectionResult, ReplyTone, QuickReplyPayload } from '../src/types';
+
+// Ensure working directory is always local (prevents UNC path failures when Setup.exe is launched directly from a LAN share)
+try {
+  if (process.cwd().startsWith('\\\\')) {
+    process.chdir(app.getPath('temp'));
+  }
+} catch (e) {}
 
 let popupWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
@@ -17,10 +24,17 @@ let tray: Tray | null = null;
 let currentAbortController: { abort: () => void } | null = null;
 let currentVisionAbortController: { abort: () => void } | null = null;
 let currentReplyAbortController: { abort: () => void } | null = null;
+let latestReplyRequestId = 0;
 let lastCapturedScreen: Electron.NativeImage | null = null;
 let lastVisionSnippet: { imagePreview: string; targetLanguage: string } | null = null;
 let lastReplySnippet: QuickReplyPayload | null = null;
 let lastReplyWasSelectAll = false;
+let lastTargetChatHwnd = '0';
+let lastTargetChatPid = 0;
+let winInputWorker: ChildProcess | null = null;
+let winInputWorkerReady = false;
+let winInputPendingResolvers: Array<(line: string) => void> = [];
+let winInputStdoutBuffer = '';
 
 const TRAY_ICON_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAIhSURBVHgB7VdNSgMxEE5CQRBEFAURF0IXLlzozkV6A0HQrVt3XkBw57gRF64giLhzEUEEwZ3ozGfSznTa3el0MplJvvC9N/OStvPhfV+j0aitpuksmqYLWJaV9i1d/2/v/RFFUSNJkiBv3uLzeDxe961f7oF4f3ccZ9cwt2mapq0bHMe5H9f2913A8zzj1fO8T3XnOI42DEPtdzW1Wq1aqvPj+n0+n7e8yN7vd9s/Dk3TNHWapla92u/3q+12e1o0mUyo67pWr9er1WpllUql3+/1eu3b7bZbLpcuTdNM4zj2eL4v2vUie55nfV9b12q1qlQq2Xg8tmazuS63222r1Wp6vV623W51s9nYu9f3/a+tVutv6z8N/C+aTqdH2/ZyuVRv1+t1bTQalTqdTqVer/9N90d/v98fyul00qXxeFwq/qJ6vV6rUqm0qFar/crL5VIJISLqdruVGo1GpWq1+qu7TqdTy3U9r1Yr+z/0arWyaDTq1Wq1tFqt/uo8l0slhGihNpvNWvb9ft+Gw+HS5w73+32H8/lcs+Vyaf1+n3ndzGazaavVqq3X66W73e6w+w3/6/5v96vxeGy3281m8/ldj8ej9fs9m80d8z8fVqvV0s1mwzybz2d5f/Rer2dr3jFf9ffo3/t1/6u+t9tNlcvl8p89P/F8Pi+t12ur67odf1mSJD6K12p+/wT8e8Q/y89X4y911EwAAAAASUVORK5CYII=';
 
@@ -462,6 +476,9 @@ function unregisterReplyActionShortcuts() {
 function hideReplyWindow() {
   unregisterReplyActionShortcuts();
   if (replyWindow && !replyWindow.isDestroyed()) {
+    try {
+      replyWindow.blur();
+    } catch (e) {}
     replyWindow.hide();
   }
 }
@@ -621,25 +638,297 @@ function writeVbsPair(primary: string, fallback: string, content: string) {
 function initVbsHelper() {
   const copyContent = 'WScript.Sleep 120\r\nSet WshShell = WScript.CreateObject("WScript.Shell")\r\nWshShell.SendKeys "^c"';
   const selectCopyContent = 'WScript.Sleep 90\r\nSet WshShell = WScript.CreateObject("WScript.Shell")\r\nWshShell.SendKeys "^a"\r\nWScript.Sleep 60\r\nWshShell.SendKeys "^c"';
-  const pasteContent = 'WScript.Sleep 120\r\nSet WshShell = WScript.CreateObject("WScript.Shell")\r\nWshShell.SendKeys "^v"';
-  const selectPasteContent = 'WScript.Sleep 120\r\nSet WshShell = WScript.CreateObject("WScript.Shell")\r\nWshShell.SendKeys "^a"\r\nWScript.Sleep 50\r\nWshShell.SendKeys "^v"';
+  const pasteContent = [
+    'Set WshShell = WScript.CreateObject("WScript.Shell")',
+    'If WScript.Arguments.Count > 0 Then',
+    '  On Error Resume Next',
+    '  WshShell.AppActivate CLng(WScript.Arguments(0))',
+    '  On Error GoTo 0',
+    '  WScript.Sleep 80',
+    'Else',
+    '  WScript.Sleep 120',
+    'End If',
+    'WshShell.SendKeys "^v"',
+  ].join('\r\n');
+  const selectPasteContent = [
+    'Set WshShell = WScript.CreateObject("WScript.Shell")',
+    'If WScript.Arguments.Count > 0 Then',
+    '  On Error Resume Next',
+    '  WshShell.AppActivate CLng(WScript.Arguments(0))',
+    '  On Error GoTo 0',
+    '  WScript.Sleep 80',
+    'Else',
+    '  WScript.Sleep 120',
+    'End If',
+    'WshShell.SendKeys "^a"',
+    'WScript.Sleep 55',
+    'WshShell.SendKeys "^v"',
+  ].join('\r\n');
 
   writeVbsPair(vbsPath, fallbackVbsPath, copyContent);
   writeVbsPair(vbsSelectCopyPath, fallbackVbsSelectCopyPath, selectCopyContent);
   writeVbsPair(vbsPastePath, fallbackVbsPastePath, pasteContent);
   writeVbsPair(vbsSelectPastePath, fallbackVbsSelectPastePath, selectPasteContent);
+
+  initWinInputWorker();
 }
 
-async function runVbsHelper(primary: string, fallback: string): Promise<void> {
+function initWinInputWorker() {
+  try {
+    const tempDir = app.getPath('temp');
+    const workerPs1 = path.join(tempDir, 'ai_translator_win_input_helper.ps1');
+    const psContent = `
+$ErrorActionPreference = 'SilentlyContinue'
+Add-Type -TypeDefinition @'
+using System;
+using System.Threading;
+using System.Runtime.InteropServices;
+
+public class WinInputHelper {
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    [DllImport("user32.dll")]
+    public static extern bool IsWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern bool IsIconic(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll")]
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern bool BringWindowToTop(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+
+    [DllImport("kernel32.dll")]
+    public static extern uint GetCurrentThreadId();
+
+    [DllImport("user32.dll")]
+    public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
+    private const uint KEYEVENTF_KEYUP = 0x0002;
+    private const byte VK_CONTROL = 0x11;
+    private const byte VK_SHIFT = 0x10;
+    private const byte VK_MENU = 0x12;
+    private const byte VK_A = 0x41;
+    private const byte VK_V = 0x56;
+
+    public static string CaptureForeground() {
+        IntPtr hwnd = GetForegroundWindow();
+        uint pid = 0;
+        if (hwnd != IntPtr.Zero) {
+            GetWindowThreadProcessId(hwnd, out pid);
+        }
+        return "FG:" + hwnd.ToInt64().ToString() + ":" + pid.ToString();
+    }
+
+    public static bool ForceActivate(long hwndVal) {
+        if (hwndVal == 0) return false;
+        IntPtr targetHwnd = new IntPtr(hwndVal);
+        if (!IsWindow(targetHwnd)) return false;
+
+        if (IsIconic(targetHwnd)) {
+            ShowWindow(targetHwnd, 9); // SW_RESTORE
+        }
+
+        for (int attempt = 0; attempt < 12; attempt++) {
+            IntPtr fgHwnd = GetForegroundWindow();
+            if (fgHwnd == targetHwnd) return true;
+
+            uint d1 = 0, d2 = 0;
+            uint fgThread = GetWindowThreadProcessId(fgHwnd, out d1);
+            uint targetThread = GetWindowThreadProcessId(targetHwnd, out d2);
+            uint curThread = GetCurrentThreadId();
+
+            bool attachedFg = false;
+            bool attachedTarget = false;
+            if (fgThread != 0 && fgThread != curThread) {
+                attachedFg = AttachThreadInput(curThread, fgThread, true);
+            }
+            if (targetThread != 0 && targetThread != curThread) {
+                attachedTarget = AttachThreadInput(curThread, targetThread, true);
+            }
+
+            // Satisfy Windows ForegroundLockTimeout before SetForegroundWindow
+            keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+            BringWindowToTop(targetHwnd);
+            SetForegroundWindow(targetHwnd);
+
+            if (attachedTarget) AttachThreadInput(curThread, targetThread, false);
+            if (attachedFg) AttachThreadInput(curThread, fgThread, false);
+
+            Thread.Sleep(20);
+            if (GetForegroundWindow() == targetHwnd) return true;
+        }
+        return GetForegroundWindow() == targetHwnd;
+    }
+
+    public static void SendCtrlKey(byte vk) {
+        keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+        keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+
+        keybd_event(VK_CONTROL, 0x1D, 0, UIntPtr.Zero);
+        Thread.Sleep(15);
+        keybd_event(vk, 0, 0, UIntPtr.Zero);
+        Thread.Sleep(15);
+        keybd_event(vk, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+        Thread.Sleep(15);
+        keybd_event(VK_CONTROL, 0x1D, KEYEVENTF_KEYUP, UIntPtr.Zero);
+    }
+
+    public static string SelectAllAndPaste(long hwndVal) {
+        ForceActivate(hwndVal);
+        Thread.Sleep(55);
+        SendCtrlKey(VK_A);
+        Thread.Sleep(55);
+        SendCtrlKey(VK_V);
+        return "PASTED:OK";
+    }
+}
+'@
+[Console]::Out.WriteLine("READY")
+[Console]::Out.Flush()
+
+while ($true) {
+    $line = [Console]::In.ReadLine()
+    if ($null -eq $line -or $line -eq "EXIT") { break }
+    if ($line -eq "CAPTURE") {
+        $res = [WinInputHelper]::CaptureForeground()
+        [Console]::Out.WriteLine($res)
+        [Console]::Out.Flush()
+    } elseif ($line.StartsWith("PASTE:")) {
+        $hwndStr = $line.Substring(6).Trim()
+        $hwndVal = [long]0
+        [long]::TryParse($hwndStr, [ref]$hwndVal) | Out-Null
+        $res = [WinInputHelper]::SelectAllAndPaste($hwndVal)
+        [Console]::Out.WriteLine($res)
+        [Console]::Out.Flush()
+    }
+}
+`;
+    fs.writeFileSync(workerPs1, psContent, 'utf-8');
+
+    const worker = spawn(
+      'powershell.exe',
+      ['-WindowStyle', 'Hidden', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', workerPs1],
+      {
+        cwd: tempDir,
+        windowsHide: true,
+        stdio: ['pipe', 'pipe', 'ignore'],
+      }
+    );
+    winInputWorker = worker;
+
+    if (worker.stdout) {
+      worker.stdout.setEncoding('utf8');
+      worker.stdout.on('data', (chunk: string) => {
+        winInputStdoutBuffer += chunk;
+        const lines = winInputStdoutBuffer.split(/\r?\n/);
+        winInputStdoutBuffer = lines.pop() || '';
+        for (const rawLine of lines) {
+          const line = rawLine.trim();
+          if (!line) continue;
+          if (line === 'READY') {
+            winInputWorkerReady = true;
+            continue;
+          }
+          const resolver = winInputPendingResolvers.shift();
+          if (resolver) {
+            resolver(line);
+          }
+        }
+      });
+    }
+
+    worker.on('exit', () => {
+      winInputWorkerReady = false;
+      winInputWorker = null;
+      while (winInputPendingResolvers.length > 0) {
+        const r = winInputPendingResolvers.shift();
+        if (r) r('');
+      }
+    });
+  } catch (err) {
+    console.warn('Failed to init WinInputWorker:', err);
+  }
+}
+
+function sendWinInputCommand(cmd: string, timeoutMs = 400): Promise<string> {
+  if (!winInputWorker || !winInputWorkerReady || !winInputWorker.stdin || !winInputWorker.stdin.writable) {
+    return Promise.resolve('');
+  }
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        const idx = winInputPendingResolvers.indexOf(onLine);
+        if (idx >= 0) winInputPendingResolvers.splice(idx, 1);
+        resolve('');
+      }
+    }, timeoutMs);
+
+    const onLine = (line: string) => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        resolve(line);
+      }
+    };
+
+    winInputPendingResolvers.push(onLine);
+    try {
+      winInputWorker!.stdin!.write(cmd + '\n');
+    } catch (e) {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        const idx = winInputPendingResolvers.indexOf(onLine);
+        if (idx >= 0) winInputPendingResolvers.splice(idx, 1);
+        resolve('');
+      }
+    }
+  });
+}
+
+async function captureTargetChatWindow(): Promise<void> {
+  const resp = await sendWinInputCommand('CAPTURE', 200);
+  if (resp && resp.startsWith('FG:')) {
+    const parts = resp.split(':');
+    const hwnd = parts[1] || '0';
+    const pid = parseInt(parts[2] || '0', 10);
+    // Only record external application windows (never our own Electron process)
+    if (hwnd !== '0' && pid > 0 && pid !== process.pid) {
+      lastTargetChatHwnd = hwnd;
+      lastTargetChatPid = pid;
+    }
+  }
+}
+
+async function runVbsHelper(primary: string, fallback: string, args: string[] = []): Promise<void> {
   const scriptToUse = fs.existsSync(primary) ? primary : fallback;
   await new Promise<void>((resolve) => {
     // Use wscript.exe (GUI subsystem) + windowsHide so Windows Terminal never steals focus from active window
-    execFile('wscript.exe', ['//B', '//Nologo', scriptToUse], { windowsHide: true }, (error) => {
-      if (error) {
-        console.warn('wscript execution warning:', error.message);
+    execFile(
+      'wscript.exe',
+      ['//B', '//Nologo', scriptToUse, ...args],
+      { windowsHide: true, cwd: app.getPath('temp') },
+      (error) => {
+        if (error) {
+          console.warn('wscript execution warning:', error.message);
+        }
+        resolve();
       }
-      resolve();
-    });
+    );
   });
 }
 
@@ -703,7 +992,7 @@ async function captureChatInputText(): Promise<string> {
   if (previousText) {
     clipboard.writeText(previousText);
   }
-  lastReplyWasSelectAll = false;
+  lastReplyWasSelectAll = true;
   return '';
 }
 
@@ -713,11 +1002,20 @@ async function replaceTextInActiveChat(translatedText: string) {
   clipboard.writeText(translatedText.trim());
   hideReplyWindow();
 
-  if (lastReplyWasSelectAll) {
-    await runVbsHelper(vbsSelectPastePath, fallbackVbsSelectPastePath);
-  } else {
-    await runVbsHelper(vbsPastePath, fallbackVbsPastePath);
+  // Wait briefly for Electron window hide transition before restoring focus to target chat window
+  await new Promise((r) => setTimeout(r, 40));
+
+  // Primary path: Win32 ForceActivate(lastTargetChatHwnd) + SelectAll (Ctrl+A) + Paste (Ctrl+V)
+  if (winInputWorkerReady && lastTargetChatHwnd !== '0') {
+    const res = await sendWinInputCommand(`PASTE:${lastTargetChatHwnd}`, 800);
+    if (res === 'PASTED:OK') {
+      return;
+    }
   }
+
+  // Fallback path: VBScript AppActivate(PID) + Ctrl+A + Ctrl+V
+  const pidArgs = lastTargetChatPid > 0 ? [String(lastTargetChatPid)] : [];
+  await runVbsHelper(vbsSelectPastePath, fallbackVbsSelectPastePath, pidArgs);
 }
 
 function hidePopupWindow() {
@@ -877,19 +1175,22 @@ async function triggerOcrSnipFlow() {
 }
 
 async function startReplyStream(text: string, targetLang: string, tone: ReplyTone) {
+  const requestId = ++latestReplyRequestId;
+
   if (currentReplyAbortController) {
     currentReplyAbortController.abort();
     currentReplyAbortController = null;
   }
 
-  if (!text || !text.trim()) return;
-
-  // Persist user's outgoing language and tone preference
+  // Persist user's outgoing language and tone preference immediately
   if (targetLang !== activeSettings.outgoingLanguage || tone !== activeSettings.outgoingTone) {
     activeSettings.outgoingLanguage = targetLang;
     activeSettings.outgoingTone = tone;
     saveSettingsToDisk(activeSettings);
+    updateTrayMenu();
   }
+
+  if (!text || !text.trim()) return;
 
   try {
     currentReplyAbortController = await streamTranslation({
@@ -900,9 +1201,11 @@ async function startReplyStream(text: string, targetLang: string, tone: ReplyTon
       reasoningEffort: activeSettings.reasoningEffort || 'none',
       tone,
       onChunk: (chunk) => {
+        if (requestId !== latestReplyRequestId) return;
         replyWindow?.webContents.send('reply-translate-chunk', chunk);
       },
       onComplete: (fullText) => {
+        if (requestId !== latestReplyRequestId) return;
         replyWindow?.webContents.send('reply-translate-complete', fullText);
 
         const history = loadHistory();
@@ -918,6 +1221,7 @@ async function startReplyStream(text: string, targetLang: string, tone: ReplyTon
         ]);
       },
       onError: (err) => {
+        if (requestId !== latestReplyRequestId) return;
         replyWindow?.webContents.send(
           'reply-translate-error',
           err.message || 'Could not connect to translation service'
@@ -925,6 +1229,7 @@ async function startReplyStream(text: string, targetLang: string, tone: ReplyTon
       },
     });
   } catch (err: any) {
+    if (requestId !== latestReplyRequestId) return;
     replyWindow?.webContents.send(
       'reply-translate-error',
       err.message || 'Could not connect to translation service'
@@ -934,7 +1239,10 @@ async function startReplyStream(text: string, targetLang: string, tone: ReplyTon
 
 async function triggerQuickReplyFlow() {
   try {
-    // Capture text currently in the active chat input box (or highlighted selection)
+    // 1. Record the active foreground window (the user's chat application) BEFORE showing our dialog
+    await captureTargetChatWindow();
+
+    // 2. Capture text currently in the active chat input box (or highlighted selection)
     const capturedText = await captureChatInputText();
 
     if (!replyWindow || replyWindow.isDestroyed()) {
@@ -1156,6 +1464,13 @@ async function runBackgroundUpdateCheck() {
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
   terminateOcrWorker();
+  try {
+    if (winInputWorker && !winInputWorker.killed) {
+      winInputWorker.stdin?.write('EXIT\n');
+      winInputWorker.kill();
+      winInputWorker = null;
+    }
+  } catch (e) {}
 });
 
 // IPC Handlers
@@ -1528,13 +1843,36 @@ ipcMain.on(
 );
 
 ipcMain.on('cancel-reply-translation', () => {
+  latestReplyRequestId++;
   if (currentReplyAbortController) {
     currentReplyAbortController.abort();
     currentReplyAbortController = null;
   }
 });
 
+ipcMain.on(
+  'set-reply-preference',
+  (_, { targetLang, tone }: { targetLang?: string; tone?: ReplyTone }) => {
+    let changed = false;
+    if (targetLang && targetLang !== activeSettings.outgoingLanguage) {
+      activeSettings.outgoingLanguage = targetLang;
+      if (lastReplySnippet) lastReplySnippet.targetLanguage = targetLang;
+      changed = true;
+    }
+    if (tone && tone !== activeSettings.outgoingTone) {
+      activeSettings.outgoingTone = tone;
+      if (lastReplySnippet) lastReplySnippet.tone = tone;
+      changed = true;
+    }
+    if (changed) {
+      saveSettingsToDisk(activeSettings);
+      updateTrayMenu();
+    }
+  }
+);
+
 ipcMain.on('confirm-reply-replace', async (_, translatedText: string) => {
+  latestReplyRequestId++;
   if (currentReplyAbortController) {
     currentReplyAbortController.abort();
     currentReplyAbortController = null;
@@ -1543,6 +1881,7 @@ ipcMain.on('confirm-reply-replace', async (_, translatedText: string) => {
 });
 
 ipcMain.on('close-reply-dialog', () => {
+  latestReplyRequestId++;
   if (currentReplyAbortController) {
     currentReplyAbortController.abort();
     currentReplyAbortController = null;

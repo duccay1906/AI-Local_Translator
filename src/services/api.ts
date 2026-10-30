@@ -195,6 +195,12 @@ export const api = {
     }
   },
 
+  setReplyPreference: (prefs: { targetLang: string; tone: ReplyTone }) => {
+    if (window.electronAPI && (window.electronAPI as any).setReplyPreference) {
+      (window.electronAPI as any).setReplyPreference(prefs);
+    }
+  },
+
   getLatestReplySnippet: async (): Promise<QuickReplyPayload | null> => {
     if (window.electronAPI && (window.electronAPI as any).getLatestReplySnippet) {
       return await (window.electronAPI as any).getLatestReplySnippet();

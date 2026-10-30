@@ -93,6 +93,16 @@ export async function streamTranslation(params: StreamTranslateParams): Promise<
   const parsedUrl = new URL(endpoint);
   const transport = parsedUrl.protocol === 'https:' ? https : http;
 
+  let currentReq: http.ClientRequest | null = null;
+  let isAborted = false;
+  let isCompleted = false;
+
+  const finishOnce = (finalText: string) => {
+    if (isAborted || isCompleted) return;
+    isCompleted = true;
+    onComplete(finalText);
+  };
+
   const requestModel = (targetModel: string, isRetry = false, omitReasoningEffort = false): { abort: () => void } => {
     const payloadObj: Record<string, any> = {
       model: targetModel || '',
@@ -125,10 +135,16 @@ export async function streamTranslation(params: StreamTranslateParams): Promise<
     let buffer = '';
 
     const req = transport.request(options, (res) => {
+      if (isAborted) {
+        res.destroy();
+        return;
+      }
+
       if (res.statusCode && (res.statusCode < 200 || res.statusCode >= 300)) {
         let errBody = '';
         res.on('data', (d) => (errBody += d));
         res.on('end', () => {
+          if (isAborted || isCompleted) return;
           // If a specific model failed to load in LM Studio (status 400), retry with empty model string to use currently loaded model
           if (!isRetry && res.statusCode === 400 && errBody.includes('Failed to load model')) {
             console.warn('Model load failed in LM Studio, retrying with active loaded model...');
@@ -149,6 +165,7 @@ export async function streamTranslation(params: StreamTranslateParams): Promise<
       res.setEncoding('utf8');
 
       res.on('data', (chunk: string) => {
+        if (isAborted || isCompleted) return;
         buffer += chunk;
         const lines = buffer.split('\n');
         buffer = lines.pop() || ''; // keep last incomplete line in buffer
@@ -158,7 +175,7 @@ export async function streamTranslation(params: StreamTranslateParams): Promise<
           if (!trimmed || trimmed.startsWith(':')) continue;
 
           if (trimmed === 'data: [DONE]') {
-            onComplete(fullTranslatedText);
+            finishOnce(fullTranslatedText);
             return;
           }
 
@@ -179,6 +196,7 @@ export async function streamTranslation(params: StreamTranslateParams): Promise<
       });
 
       res.on('end', () => {
+        if (isAborted || isCompleted) return;
         // Process any remaining buffer
         if (buffer.trim().startsWith('data: ')) {
           const jsonStr = buffer.trim().substring(6);
@@ -191,11 +209,14 @@ export async function streamTranslation(params: StreamTranslateParams): Promise<
             }
           } catch (e) {}
         }
-        onComplete(fullTranslatedText);
+        finishOnce(fullTranslatedText);
       });
     });
 
+    currentReq = req;
+
     req.on('error', (err) => {
+      if (isAborted || isCompleted) return;
       onError(err);
     });
 
@@ -204,7 +225,10 @@ export async function streamTranslation(params: StreamTranslateParams): Promise<
 
     return {
       abort: () => {
-        req.destroy();
+        isAborted = true;
+        if (currentReq) {
+          currentReq.destroy();
+        }
       },
     };
   };
@@ -419,6 +443,16 @@ Yêu cầu chất lượng cao:
     ? imageBase64
     : `data:image/png;base64,${imageBase64}`;
 
+  let currentReq: http.ClientRequest | null = null;
+  let isAborted = false;
+  let isCompleted = false;
+
+  const finishOnce = (finalText: string) => {
+    if (isAborted || isCompleted) return;
+    isCompleted = true;
+    onComplete(finalText);
+  };
+
   const requestModel = (targetModel: string, isRetry = false, omitReasoningEffort = false): { abort: () => void } => {
     const payloadObj: Record<string, any> = {
       model: targetModel || '',
@@ -464,10 +498,16 @@ Yêu cầu chất lượng cao:
     let buffer = '';
 
     const req = transport.request(options, (res) => {
+      if (isAborted) {
+        res.destroy();
+        return;
+      }
+
       if (res.statusCode && (res.statusCode < 200 || res.statusCode >= 300)) {
         let errBody = '';
         res.on('data', (d) => (errBody += d));
         res.on('end', () => {
+          if (isAborted || isCompleted) return;
           if (!isRetry && res.statusCode === 400 && errBody.includes('Failed to load model')) {
             requestModel('', true, omitReasoningEffort);
             return;
@@ -484,6 +524,7 @@ Yêu cầu chất lượng cao:
       res.setEncoding('utf8');
 
       res.on('data', (chunk: string) => {
+        if (isAborted || isCompleted) return;
         buffer += chunk;
         const lines = buffer.split('\n');
         buffer = lines.pop() || '';
@@ -493,7 +534,7 @@ Yêu cầu chất lượng cao:
           if (!trimmed || trimmed.startsWith(':')) continue;
 
           if (trimmed === 'data: [DONE]') {
-            onComplete(fullTranslatedText);
+            finishOnce(fullTranslatedText);
             return;
           }
 
@@ -512,6 +553,7 @@ Yêu cầu chất lượng cao:
       });
 
       res.on('end', () => {
+        if (isAborted || isCompleted) return;
         if (buffer.trim().startsWith('data: ')) {
           const jsonStr = buffer.trim().substring(6);
           try {
@@ -523,11 +565,14 @@ Yêu cầu chất lượng cao:
             }
           } catch (e) {}
         }
-        onComplete(fullTranslatedText);
+        finishOnce(fullTranslatedText);
       });
     });
 
+    currentReq = req;
+
     req.on('error', (err) => {
+      if (isAborted || isCompleted) return;
       onError(err);
     });
 
@@ -536,7 +581,10 @@ Yêu cầu chất lượng cao:
 
     return {
       abort: () => {
-        req.destroy();
+        isAborted = true;
+        if (currentReq) {
+          currentReq.destroy();
+        }
       },
     };
   };
