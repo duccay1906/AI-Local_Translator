@@ -32,16 +32,33 @@
 
       <nav>
         <ul class="nav-menu">
-          <li><a href="#hero" class="nav-link active">Giới thiệu</a></li>
-          <li><a href="#features" class="nav-link">Tính năng</a></li>
-          <li><a href="#install" class="nav-link">Hướng dẫn cài đặt</a></li>
-          <li><a href="#manual" class="nav-link">Hướng dẫn sử dụng</a></li>
-          <li><a href="#download" class="nav-link">Tải về</a></li>
-          <li><a href="#faq" class="nav-link">Hỏi đáp & Xử lý lỗi</a></li>
+          <li><a href="#hero" class="nav-link active" data-i18n="nav_intro">Giới thiệu</a></li>
+          <li><a href="#features" class="nav-link" data-i18n="nav_features">Tính năng</a></li>
+          <li><a href="#install" class="nav-link" data-i18n="nav_install">Hướng dẫn cài đặt</a></li>
+          <li><a href="#manual" class="nav-link" data-i18n="nav_manual">Hướng dẫn sử dụng</a></li>
+          <li><a href="#download" class="nav-link" data-i18n="nav_download">Tải về</a></li>
+          <li><a href="#faq" class="nav-link" data-i18n="nav_faq">Hỏi đáp & Xử lý lỗi</a></li>
         </ul>
       </nav>
 
       <div class="nav-actions">
+        <!-- Language Switcher Dropdown -->
+        <div class="lang-switch-dropdown">
+          <button class="lang-switch-btn" id="lang-toggle-btn" aria-label="Switch Language" title="Đổi ngôn ngữ / Change Language">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+            <span id="current-lang-text">VI</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="lang-menu" id="lang-menu">
+            <button class="lang-option active" data-lang="vi">
+              <span>🇻🇳</span> Tiếng Việt
+            </button>
+            <button class="lang-option" data-lang="en">
+              <span>🇬🇧</span> English
+            </button>
+          </div>
+        </div>
+
         <a href="#download" class="btn btn-primary btn-sm">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
           <span class="current-version-tag">v1.0.9</span>
@@ -60,40 +77,40 @@
     <div class="container">
       <div class="hero-pill-badge">
         <span class="status-dot"></span>
-        <span>Máy chủ LAN sẵn sàng: <strong>192.168.1.12:8080</strong></span>
+        <span data-i18n-html="hero_status">Máy chủ LAN sẵn sàng: <strong>192.168.1.12:8080</strong></span>
         <span style="opacity: 0.5;">|</span>
         <span class="current-version-tag" style="color: #6ee7b7; font-weight: 600;">v1.0.9</span>
       </div>
 
-      <h1>Dịch thuật AI Cục bộ Siêu tốc & <br><span class="gradient-text">Bảo mật Tuyệt đối</span></h1>
+      <h1 data-i18n-html="hero_title">Dịch thuật AI Cục bộ Siêu tốc & <br><span class="gradient-text">Bảo mật Tuyệt đối</span></h1>
 
-      <p class="hero-subtitle">
+      <p class="hero-subtitle" data-i18n="hero_subtitle">
         Ứng dụng dịch thuật thông minh tích hợp mô hình ngôn ngữ lớn (Local LLM) qua mạng LAN. Dịch chọn văn bản siêu tốc, chụp màn hình OCR thông minh và hỗ trợ trả lời tin nhắn tức thì.
       </p>
 
       <div class="hero-cta-group">
         <a href="/updates/AI_Local_Translator_Setup_1.0.9.exe" id="btn-download-setup" class="btn btn-primary btn-lg">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          Tải Bộ Cài Đặt Setup (Khuyên dùng)
+          <span data-i18n="hero_btn_setup">Tải Bộ Cài Đặt Setup (Khuyên dùng)</span>
         </a>
         <a href="/updates/AI_Local_Translator_1.0.9.exe" id="btn-download-portable" class="btn btn-secondary btn-lg">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16.5 9.4 7.55 4.24a1.78 1.78 0 0 0-2.5 1.55v12.42a1.78 1.78 0 0 0 2.5 1.55L16.5 14.6a1.78 1.78 0 0 0 0-3.2z"></path></svg>
-          Tải Bản Portable (.exe)
+          <span data-i18n="hero_btn_portable">Tải Bản Portable (.exe)</span>
         </a>
       </div>
 
       <div class="hero-meta-info">
         <div class="meta-item">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-success)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-          <span>100% Dữ liệu nội bộ không ra Internet</span>
+          <span data-i18n="hero_meta_privacy">100% Dữ liệu nội bộ không ra Internet</span>
         </div>
         <div class="meta-item">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-          <span>Tương thích Windows 10/11 (64-bit)</span>
+          <span data-i18n="hero_meta_compatibility">Tương thích Windows 10/11 (64-bit)</span>
         </div>
         <div class="meta-item">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
-          <span>Tự động cập nhật qua mạng LAN</span>
+          <span data-i18n="hero_meta_updates">Tự động cập nhật qua mạng LAN</span>
         </div>
       </div>
 
@@ -106,19 +123,19 @@
               <span class="dot yellow"></span>
               <span class="dot green"></span>
             </div>
-            <div class="window-title">AI Local Translator - Live Preview</div>
-            <div style="font-size: 0.75rem; color: #10b981; font-weight: 600;">● Connected to LM Studio</div>
+            <div class="window-title" data-i18n="mockup_title">AI Local Translator - Live Preview</div>
+            <div style="font-size: 0.75rem; color: #10b981; font-weight: 600;" data-i18n="mockup_status">● Connected to LM Studio</div>
           </div>
           <div class="mockup-body">
             <div class="mockup-card">
-              <div class="mockup-badge">VĂN BẢN GỐC (Bôi đen & Nhấn F8)</div>
-              <p class="mockup-text">
+              <div class="mockup-badge" data-i18n="mockup_orig_badge">VĂN BẢN GỐC (Bôi đen & Nhấn F8)</div>
+              <p class="mockup-text" data-i18n="mockup_orig_text">
                 "We need to confirm the software deployment schedule with the Korean client before 5 PM today."
               </p>
             </div>
             <div class="mockup-card" style="border-color: rgba(99, 102, 241, 0.4);">
-              <div class="mockup-badge" style="background: rgba(16, 185, 129, 0.2); color: #6ee7b7;">BẢN DỊCH AI TỨC THÌ (Tiếng Việt)</div>
-              <p class="mockup-text" style="color: #fff; font-weight: 500;">
+              <div class="mockup-badge" style="background: rgba(16, 185, 129, 0.2); color: #6ee7b7;" data-i18n="mockup_trans_badge">BẢN DỊCH AI TỨC THÌ (Tiếng Việt)</div>
+              <p class="mockup-text" style="color: #fff; font-weight: 500;" data-i18n="mockup_trans_text">
                 "Chúng ta cần xác nhận lịch triển khai phần mềm với khách hàng Hàn Quốc trước 5 giờ chiều hôm nay."
               </p>
             </div>
@@ -134,9 +151,9 @@
   <section id="features" class="section">
     <div class="container">
       <div class="section-header">
-        <div class="section-tag">Tính năng nổi bật</div>
-        <h2>Công Cụ Dịch Thuật Đắc Lực Cho Dân Văn Phòng & Kỹ Sư</h2>
-        <p>Được thiết kế để tối ưu hóa năng suất làm việc, loại bỏ thao tác copy-paste thủ công giữa các cửa sổ.</p>
+        <div class="section-tag" data-i18n="feat_tag">Tính năng nổi bật</div>
+        <h2 data-i18n="feat_heading">Công Cụ Dịch Thuật Đắc Lực Cho Dân Văn Phòng & Kỹ Sư</h2>
+        <p data-i18n="feat_subheading">Được thiết kế để tối ưu hóa năng suất làm việc, loại bỏ thao tác copy-paste thủ công giữa các cửa sổ.</p>
       </div>
 
       <div class="features-grid">
@@ -145,12 +162,12 @@
           <div class="feature-icon-box">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
           </div>
-          <h3>Dịch Chọn Văn Bản Siêu Tốc</h3>
-          <p>
+          <h3 data-i18n="feat1_title">Dịch Chọn Văn Bản Siêu Tốc</h3>
+          <p data-i18n="feat1_desc">
             Bôi đen văn bản ở bất kỳ ứng dụng nào (Word, Excel, trình duyệt, Slack, PDF...) và nhấn phím tắt. Cửa sổ dịch nổi mượt mà sẽ xuất hiện ngay tại vị trí con trỏ chuột.
           </p>
           <div class="hotkey-badge">
-            <span>Phím tắt mặc định:</span>
+            <span data-i18n="feat1_hotkey">Phím tắt mặc định:</span>
             <kbd>F8</kbd>
           </div>
         </div>
@@ -160,12 +177,12 @@
           <div class="feature-icon-box">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
           </div>
-          <h3>Chụp Màn Hình OCR Thông Minh</h3>
-          <p>
+          <h3 data-i18n="feat2_title">Chụp Màn Hình OCR Thông Minh</h3>
+          <p data-i18n="feat2_desc">
             Khoanh vùng bất kỳ khu vực nào trên màn hình để trích xuất văn bản từ hình ảnh, biểu đồ, video hoặc tài liệu bị khóa copy, sau đó dịch song ngữ trực quan.
           </p>
           <div class="hotkey-badge">
-            <span>Phím tắt mặc định:</span>
+            <span data-i18n="feat2_hotkey">Phím tắt mặc định:</span>
             <kbd>F9</kbd>
           </div>
         </div>
@@ -175,12 +192,12 @@
           <div class="feature-icon-box">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
           </div>
-          <h3>Quick Chat Reply & Replace</h3>
-          <p>
+          <h3 data-i18n="feat3_title">Quick Chat Reply & Replace</h3>
+          <p data-i18n="feat3_desc">
             Đang gõ tin nhắn tiếng Việt trong Zalo, Skype, Teams? Nhấn phím tắt để dịch sang tiếng Hàn/Anh/Nhật theo 3 sắc thái (Lịch sự, Tiêu chuẩn, Thân mật) và tự động thay thế văn bản.
           </p>
           <div class="hotkey-badge">
-            <span>Phím tắt mặc định:</span>
+            <span data-i18n="feat3_hotkey">Phím tắt mặc định:</span>
             <kbd>F10</kbd>
           </div>
         </div>
@@ -190,12 +207,12 @@
           <div class="feature-icon-box">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
           </div>
-          <h3>Bảo Mật 100% Tuyệt Đối</h3>
-          <p>
+          <h3 data-i18n="feat4_title">Bảo Mật 100% Tuyệt Đối</h3>
+          <p data-i18n="feat4_desc">
             Hoạt động độc lập thông qua máy chủ LM Studio đặt trong mạng nội bộ công ty. Không có bất kỳ dữ liệu nào bị gửi lên dịch vụ đám mây công cộng bên ngoài.
           </p>
           <div class="hotkey-badge" style="color: #6ee7b7;">
-            <span>Zero Cloud Leak</span>
+            <span data-i18n="feat4_badge">Zero Cloud Leak</span>
           </div>
         </div>
 
@@ -204,12 +221,12 @@
           <div class="feature-icon-box">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
           </div>
-          <h3>Tự Động Nâng Cấp Qua Mạng LAN</h3>
-          <p>
+          <h3 data-i18n="feat5_title">Tự Động Nâng Cấp Qua Mạng LAN</h3>
+          <p data-i18n="feat5_desc">
             Tích hợp cơ chế kiểm tra và tải cập nhật tự động từ máy chủ nội bộ. Quá trình cập nhật được tối ưu với Native Windows Shell API mượt mà và an toàn.
           </p>
           <div class="hotkey-badge">
-            <span>Server: 192.168.1.12:8080</span>
+            <span data-i18n="feat5_badge">Server: 192.168.1.12:8080</span>
           </div>
         </div>
 
@@ -218,12 +235,12 @@
           <div class="feature-icon-box">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
           </div>
-          <h3>Tùy Biến Toàn Diện & Giọng Điệu</h3>
-          <p>
+          <h3 data-i18n="feat6_title">Tùy Biến Toàn Diện & Giọng Điệu</h3>
+          <p data-i18n="feat6_desc">
             Tự do cấu hình Prompt dịch, tinh chỉnh mức độ suy luận (Reasoning Effort), thay đổi phím tắt theo ý thích và quản lý lịch sử dịch thuật dễ dàng.
           </p>
           <div class="hotkey-badge">
-            <span>Settings Customization</span>
+            <span data-i18n="feat6_badge">Tùy biến Cài đặt</span>
           </div>
         </div>
       </div>
@@ -236,24 +253,24 @@
   <section id="install" class="section">
     <div class="container">
       <div class="section-header">
-        <div class="section-tag">Hướng dẫn triển khai</div>
-        <h2>Cài Đặt & Cấu Hình Kết Nối Từng Bước</h2>
-        <p>Chỉ mất 2 phút để hoàn tất thiết lập cho bất kỳ máy trạm nào trong mạng nội bộ.</p>
+        <div class="section-tag" data-i18n="install_tag">Hướng dẫn triển khai</div>
+        <h2 data-i18n="install_heading">Cài Đặt & Cấu Hình Kết Nối Từng Bước</h2>
+        <p data-i18n="install_subheading">Chỉ mất 2 phút để hoàn tất thiết lập cho bất kỳ máy trạm nào trong mạng nội bộ.</p>
       </div>
 
       <div class="guide-tabs-container">
         <div class="tabs-nav">
           <button class="tab-btn active" data-tab="tab-client">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-            1. Cài đặt trên máy người dùng (Client)
+            <span data-i18n="tab_client_btn">1. Cài đặt trên máy người dùng (Client)</span>
           </button>
           <button class="tab-btn" data-tab="tab-server">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
-            2. Cấu hình kết nối máy chủ LM Studio
+            <span data-i18n="tab_server_btn">2. Cấu hình kết nối máy chủ LM Studio</span>
           </button>
           <button class="tab-btn" data-tab="tab-system">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-            3. Yêu cầu hệ thống
+            <span data-i18n="tab_system_btn">3. Yêu cầu hệ thống</span>
           </button>
         </div>
 
@@ -263,15 +280,15 @@
             <div class="step-item">
               <div class="step-number">1</div>
               <div class="step-details">
-                <h4>Tải về gói cài đặt phù hợp</h4>
-                <p>Khuyên dùng <strong>Bản Cài Đặt (Setup .exe)</strong> để ứng dụng tự động tạo lối tắt ngoài màn hình Desktop và hỗ trợ tự khởi động cùng Windows khi bật máy.</p>
+                <h4 data-i18n="step_client_1_title">Tải về gói cài đặt phù hợp</h4>
+                <p data-i18n-html="step_client_1_desc">Khuyên dùng <strong>Bản Cài Đặt (Setup .exe)</strong> để ứng dụng tự động tạo lối tắt ngoài màn hình Desktop và hỗ trợ tự khởi động cùng Windows khi bật máy.</p>
                 <div style="display: flex; gap: 12px; margin-top: 12px; flex-wrap: wrap;">
                   <a href="/updates/AI_Local_Translator_Setup_1.0.9.exe" class="btn btn-primary btn-sm">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    Tải Setup Installer (.exe)
+                    <span data-i18n="step_client_1_btn_setup">Tải Setup Installer (.exe)</span>
                   </a>
                   <a href="/updates/AI_Local_Translator_1.0.9.exe" class="btn btn-secondary btn-sm">
-                    Tải Portable (.exe)
+                    <span data-i18n="step_client_1_btn_portable">Tải Portable (.exe)</span>
                   </a>
                 </div>
               </div>
@@ -280,16 +297,16 @@
             <div class="step-item">
               <div class="step-number">2</div>
               <div class="step-details">
-                <h4>Chạy file cài đặt</h4>
-                <p>Click đúp vào file <code>AI_Local_Translator_Setup_*.exe</code> vừa tải về. Trình cài đặt NSIS sẽ tự động cài đặt ứng dụng vào thư mục người dùng mà <strong>không cần cấp quyền Quản trị viên (UAC Admin)</strong>.</p>
+                <h4 data-i18n="step_client_2_title">Chạy file cài đặt</h4>
+                <p data-i18n-html="step_client_2_desc">Click đúp vào file <code>AI_Local_Translator_Setup_*.exe</code> vừa tải về. Trình cài đặt NSIS sẽ tự động cài đặt ứng dụng vào thư mục người dùng mà <strong>không cần cấp quyền Quản trị viên (UAC Admin)</strong>.</p>
               </div>
             </div>
 
             <div class="step-item">
               <div class="step-number">3</div>
               <div class="step-details">
-                <h4>Kiểm tra biểu tượng ứng dụng ở góc khay hệ thống (System Tray)</h4>
-                <p>Sau khi mở, bạn sẽ thấy icon của AI Local Translator xuất hiện ở góc phải màn hình bên cạnh đồng hồ Windows. Click chuột phải vào icon để mở menu thao tác hoặc click chuột trái để mở cửa sổ <strong>Cài đặt (Settings)</strong>.</p>
+                <h4 data-i18n="step_client_3_title">Kiểm tra biểu tượng ứng dụng ở góc khay hệ thống (System Tray)</h4>
+                <p data-i18n-html="step_client_3_desc">Sau khi mở, bạn sẽ thấy icon của AI Local Translator xuất hiện ở góc phải màn hình bên cạnh đồng hồ Windows. Click chuột phải vào icon để mở menu thao tác hoặc click chuột trái để mở cửa sổ <strong>Cài đặt (Settings)</strong>.</p>
               </div>
             </div>
           </div>
@@ -301,21 +318,21 @@
             <div class="step-item">
               <div class="step-number">1</div>
               <div class="step-details">
-                <h4>Mở cửa sổ Cài đặt (Settings)</h4>
-                <p>Click vào icon ứng dụng dưới System Tray hoặc chọn <strong>"⚙️ Open Settings (Cài đặt)"</strong>.</p>
+                <h4 data-i18n="step_server_1_title">Mở cửa sổ Cài đặt (Settings)</h4>
+                <p data-i18n-html="step_server_1_desc">Click vào icon ứng dụng dưới System Tray hoặc chọn <strong>"⚙️ Open Settings (Cài đặt)"</strong>.</p>
               </div>
             </div>
 
             <div class="step-item">
               <div class="step-number">2</div>
               <div class="step-details">
-                <h4>Điền địa chỉ Máy chủ LM Studio</h4>
-                <p>Trong mục <strong>LM Studio API URL</strong>, hãy nhập đúng địa chỉ IP của máy chủ đang chạy LM Studio trong mạng LAN:</p>
+                <h4 data-i18n="step_server_2_title">Điền địa chỉ Máy chủ LM Studio</h4>
+                <p data-i18n-html="step_server_2_desc">Trong mục <strong>LM Studio API URL</strong>, hãy nhập đúng địa chỉ IP của máy chủ đang chạy LM Studio trong mạng LAN:</p>
                 <div class="code-snippet-box">
                   <code>http://192.168.1.12:1234/v1</code>
                   <button class="copy-btn" data-copy="http://192.168.1.12:1234/v1">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                    Sao chép
+                    <span data-i18n="copy_text_btn">Sao chép</span>
                   </button>
                 </div>
               </div>
@@ -324,8 +341,8 @@
             <div class="step-item">
               <div class="step-number">3</div>
               <div class="step-details">
-                <h4>Kiểm tra kết nối và Lưu cấu hình</h4>
-                <p>Bấm nút <strong>"Test Connection"</strong>. Khi thấy xuất hiện thông báo <em>"Connected successfully! (Model loaded)"</em>, bấm <strong>"Save Settings"</strong> để hoàn tất.</p>
+                <h4 data-i18n="step_server_3_title">Kiểm tra kết nối và Lưu cấu hình</h4>
+                <p data-i18n-html="step_server_3_desc">Bấm nút <strong>"Test Connection"</strong>. Khi thấy xuất hiện thông báo <em>"Connected successfully! (Model loaded)"</em>, bấm <strong>"Save Settings"</strong> để hoàn tất.</p>
               </div>
             </div>
           </div>
@@ -335,21 +352,21 @@
         <div id="tab-system" class="tab-content">
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
             <div class="mockup-card">
-              <h4 style="margin-bottom: 12px; color: #fff;">Máy Trạm Người Dùng (Client App)</h4>
+              <h4 style="margin-bottom: 12px; color: #fff;" data-i18n="sys_req_client_title">Máy Trạm Người Dùng (Client App)</h4>
               <ul class="manual-list">
-                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Hệ điều hành: Windows 10 / Windows 11 (64-bit)</li>
-                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> RAM: Tối thiểu 4GB (Khuyên dùng 8GB+)</li>
-                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Dung lượng trống: 250MB</li>
-                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Mạng: Kết nối chung mạng LAN (WiFi hoặc Dây mạng) với máy chủ</li>
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span data-i18n="sys_req_client_os">Hệ điều hành: Windows 10 / Windows 11 (64-bit)</span></li>
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span data-i18n="sys_req_client_ram">RAM: Tối thiểu 4GB (Khuyên dùng 8GB+)</span></li>
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span data-i18n="sys_req_client_disk">Dung lượng trống: 250MB</span></li>
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span data-i18n="sys_req_client_net">Mạng: Kết nối chung mạng LAN (WiFi hoặc Dây mạng) với máy chủ</span></li>
               </ul>
             </div>
             <div class="mockup-card">
-              <h4 style="margin-bottom: 12px; color: #fff;">Máy Chủ Chạy Mô Hình AI (LM Studio Host)</h4>
+              <h4 style="margin-bottom: 12px; color: #fff;" data-i18n="sys_req_server_title">Máy Chủ Chạy Mô Hình AI (LM Studio Host)</h4>
               <ul class="manual-list">
-                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Phần mềm: LM Studio v0.3.x (bật cờ Local Server)</li>
-                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> GPU: Card NVIDIA RTX 3060/4060 (8GB VRAM trở lên) để dịch siêu tốc</li>
-                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Model khuyến nghị: Qwen2.5-7B-Instruct hoặc Gemma-2-9B</li>
-                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Mở cổng Firewall: Port 1234 (LM Studio) & Port 8080 (Update Server)</li>
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span data-i18n="sys_req_server_app">Phần mềm: LM Studio v0.3.x (bật cờ Local Server)</span></li>
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span data-i18n="sys_req_server_gpu">GPU: Card NVIDIA RTX 3060/4060 (8GB VRAM trở lên) để dịch siêu tốc</span></li>
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span data-i18n="sys_req_server_model">Model khuyến nghị: Qwen2.5-7B-Instruct hoặc Gemma-2-9B</span></li>
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span data-i18n="sys_req_server_port">Mở cổng Firewall: Port 1234 (LM Studio) & Port 8080 (Update Server)</span></li>
               </ul>
             </div>
           </div>
@@ -364,9 +381,9 @@
   <section id="manual" class="section">
     <div class="container">
       <div class="section-header">
-        <div class="section-tag">Hướng dẫn sử dụng</div>
-        <h2>Bảng Tra Cứu Phím Tắt Tiện Dụng</h2>
-        <p>Làm chủ toàn bộ tính năng dịch thuật tức thì chỉ với 3 phím bấm quen thuộc.</p>
+        <div class="section-tag" data-i18n="manual_tag">Hướng dẫn sử dụng</div>
+        <h2 data-i18n="manual_heading">Bảng Tra Cứu Phím Tắt Tiện Dụng</h2>
+        <p data-i18n="manual_subheading">Làm chủ toàn bộ tính năng dịch thuật tức thì chỉ với 3 phím bấm quen thuộc.</p>
       </div>
 
       <div class="manual-grid">
@@ -374,15 +391,15 @@
         <div class="manual-card">
           <div class="manual-header">
             <kbd style="font-size: 1.1rem; padding: 4px 10px;">F8</kbd>
-            <h3>Dịch Chọn Văn Bản Nhanh</h3>
+            <h3 data-i18n="card_f8_title">Dịch Chọn Văn Bản Nhanh</h3>
           </div>
-          <p style="font-size: 0.95rem; line-height: 1.6;">
+          <p style="font-size: 0.95rem; line-height: 1.6;" data-i18n="card_f8_desc">
             Dùng để đọc hiểu email, tài liệu kỹ thuật, trang web tiếng nước ngoài mà không cần chuyển tab.
           </p>
           <ul class="manual-list">
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>Bước 1:</strong> Bôi đen đoạn chữ cần dịch trong bất kỳ app nào.</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>Bước 2:</strong> Nhấn phím <kbd>F8</kbd>.</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>Bước 3:</strong> Cửa sổ dịch xuất hiện tức thì với bản dịch tiếng Việt mượt mà.</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span data-i18n-html="card_f8_step1"><strong>Bước 1:</strong> Bôi đen đoạn chữ cần dịch trong bất kỳ app nào.</span></li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span data-i18n-html="card_f8_step2"><strong>Bước 2:</strong> Nhấn phím <kbd>F8</kbd>.</span></li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span data-i18n-html="card_f8_step3"><strong>Bước 3:</strong> Cửa sổ dịch xuất hiện tức thì với bản dịch tiếng Việt mượt mà.</span></li>
           </ul>
         </div>
 
@@ -390,15 +407,15 @@
         <div class="manual-card">
           <div class="manual-header">
             <kbd style="font-size: 1.1rem; padding: 4px 10px;">F9</kbd>
-            <h3>Chụp Màn Hình & Dịch OCR</h3>
+            <h3 data-i18n="card_f9_title">Chụp Màn Hình & Dịch OCR</h3>
           </div>
-          <p style="font-size: 0.95rem; line-height: 1.6;">
+          <p style="font-size: 0.95rem; line-height: 1.6;" data-i18n="card_f9_desc">
             Dùng cho các tài liệu hình ảnh, file scan không cho copy chữ, hoặc các nút bấm trong phần mềm.
           </p>
           <ul class="manual-list">
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>Bước 1:</strong> Nhấn phím <kbd>F9</kbd>, toàn màn hình sẽ tối mờ lại.</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>Bước 2:</strong> Kéo chuột khoanh vùng hình ảnh cần đọc chữ.</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>Bước 3:</strong> Trí tuệ nhân tạo sẽ trích xuất chữ và dịch trực tiếp.</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span data-i18n-html="card_f9_step1"><strong>Bước 1:</strong> Nhấn phím <kbd>F9</kbd>, toàn màn hình sẽ tối mờ lại.</span></li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span data-i18n-html="card_f9_step2"><strong>Bước 2:</strong> Kéo chuột khoanh vùng hình ảnh cần đọc chữ.</span></li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span data-i18n-html="card_f9_step3"><strong>Bước 3:</strong> Trí tuệ nhân tạo sẽ trích xuất chữ và dịch trực tiếp.</span></li>
           </ul>
         </div>
 
@@ -406,15 +423,15 @@
         <div class="manual-card">
           <div class="manual-header">
             <kbd style="font-size: 1.1rem; padding: 4px 10px;">F10</kbd>
-            <h3>Quick Chat Reply & Replace</h3>
+            <h3 data-i18n="card_f10_title">Quick Chat Reply & Replace</h3>
           </div>
-          <p style="font-size: 0.95rem; line-height: 1.6;">
+          <p style="font-size: 0.95rem; line-height: 1.6;" data-i18n="card_f10_desc">
             Dùng khi bạn cần nhắn tin trả lời đối tác/khách hàng nước ngoài bằng ngoại ngữ một cách chuẩn xác.
           </p>
           <ul class="manual-list">
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>Bước 1:</strong> Gõ câu trả lời bằng tiếng Việt vào ô chat Zalo/Teams.</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>Bước 2:</strong> Nhấn phím <kbd>F10</kbd>.</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>Bước 3:</strong> Chọn văn phong (Lịch sự, Tiêu chuẩn, Thân mật) rồi nhấn <kbd>Enter</kbd> để câu tiếng Việt tự động được thay thế thành câu ngoại ngữ!</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span data-i18n-html="card_f10_step1"><strong>Bước 1:</strong> Gõ câu trả lời bằng tiếng Việt vào ô chat Zalo/Teams.</span></li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span data-i18n-html="card_f10_step2"><strong>Bước 2:</strong> Nhấn phím <kbd>F10</kbd>.</span></li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span data-i18n-html="card_f10_step3"><strong>Bước 3:</strong> Chọn văn phong (Lịch sự, Tiêu chuẩn, Thân mật) rồi nhấn <kbd>Enter</kbd> để câu tiếng Việt tự động được thay thế thành câu ngoại ngữ!</span></li>
           </ul>
         </div>
       </div>
@@ -427,26 +444,26 @@
   <section id="download" class="section">
     <div class="container">
       <div class="section-header">
-        <div class="section-tag">Tải về bản mới nhất</div>
-        <h2>Trung Tâm Tải Về & Nhật Ký Phát Hành</h2>
-        <p>Bản cập nhật được đóng gói và kiểm thử tương thích kỹ lưỡng cho toàn bộ máy trạm nội bộ.</p>
+        <div class="section-tag" data-i18n="download_tag">Tải về bản mới nhất</div>
+        <h2 data-i18n="download_heading">Trung Tâm Tải Về & Nhật Ký Phát Hành</h2>
+        <p data-i18n="download_subheading">Bản cập nhật được đóng gói và kiểm thử tương thích kỹ lưỡng cho toàn bộ máy trạm nội bộ.</p>
       </div>
 
       <div class="download-cards-wrap">
         <!-- Setup Card -->
         <div class="download-box featured">
-          <span class="ribbon">Khuyên dùng</span>
+          <span class="ribbon" data-i18n="card_setup_badge">Khuyên dùng</span>
           <div class="feature-icon-box" style="margin: 0 auto 16px;">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
           </div>
-          <h3>Bộ Cài Đặt Setup (NSIS Installer)</h3>
-          <p style="font-size: 0.95rem; margin-top: 8px;">Tự động tạo lối tắt Desktop, đăng ký khởi động cùng Windows và hỗ trợ tự động nâng cấp mượt mà.</p>
+          <h3 data-i18n="card_setup_title">Bộ Cài Đặt Setup (NSIS Installer)</h3>
+          <p style="font-size: 0.95rem; margin-top: 8px;" data-i18n="card_setup_desc">Tự động tạo lối tắt Desktop, đăng ký khởi động cùng Windows và hỗ trợ tự động nâng cấp mượt mà.</p>
           <div class="download-meta">
-            Phiên bản: <strong class="current-version-tag">v1.0.9</strong> • Phát hành: <span class="release-date-tag">2026-10-30</span> • ~101 MB
+            <span data-i18n="meta_version_label">Phiên bản:</span> <strong class="current-version-tag">v1.0.9</strong> • <span data-i18n="meta_release_label">Phát hành:</span> <span class="release-date-tag">2026-10-30</span> • ~101 MB
           </div>
           <a href="/updates/AI_Local_Translator_Setup_1.0.9.exe" class="btn btn-primary" style="width: 100%;">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            Tải File Setup (.exe)
+            <span data-i18n="card_setup_btn">Tải File Setup (.exe)</span>
           </a>
         </div>
 
@@ -455,14 +472,14 @@
           <div class="feature-icon-box" style="margin: 0 auto 16px; background: rgba(30, 41, 59, 0.7); border-color: rgba(255,255,255,0.1); color: #cbd5e1;">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
           </div>
-          <h3>Bản Di Động Portable</h3>
-          <p style="font-size: 0.95rem; margin-top: 8px;">Không cần cài đặt. Tải về và click chạy trực tiếp từ bất kỳ thư mục nào hoặc USB.</p>
+          <h3 data-i18n="card_portable_title">Bản Di Động Portable</h3>
+          <p style="font-size: 0.95rem; margin-top: 8px;" data-i18n="card_portable_desc">Không cần cài đặt. Tải về và click chạy trực tiếp từ bất kỳ thư mục nào hoặc USB.</p>
           <div class="download-meta">
-            Phiên bản: <strong class="current-version-tag">v1.0.9</strong> • Phát hành: <span class="release-date-tag">2026-10-30</span> • ~100 MB
+            <span data-i18n="meta_version_label">Phiên bản:</span> <strong class="current-version-tag">v1.0.9</strong> • <span data-i18n="meta_release_label">Phát hành:</span> <span class="release-date-tag">2026-10-30</span> • ~100 MB
           </div>
           <a href="/updates/AI_Local_Translator_1.0.9.exe" class="btn btn-secondary" style="width: 100%;">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            Tải Bản Portable (.exe)
+            <span data-i18n="card_portable_btn">Tải Bản Portable (.exe)</span>
           </a>
         </div>
       </div>
@@ -473,12 +490,12 @@
         <div class="accordion-item open">
           <div class="accordion-header">
             <h4>
-              <span class="badge" style="background: rgba(99,102,241,0.25); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.4);">Mới nhất</span>
-              Nhật ký cập nhật <span class="current-version-tag">v1.0.9</span>
+              <span class="badge" style="background: rgba(99,102,241,0.25); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.4);" data-i18n="changelog_badge_latest">Mới nhất</span>
+              <span data-i18n="changelog_title_latest">Nhật ký cập nhật</span> <span class="current-version-tag">v1.0.9</span>
             </h4>
             <svg class="accordion-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
           </div>
-          <div class="accordion-body" id="changelog-latest-content">
+          <div class="accordion-body" id="changelog-latest-content" data-i18n-html="changelog_body_v109">
             • <strong>Cơ chế cập nhật Native Windows Shell:</strong> Loại bỏ hoàn toàn script chạy ngầm, gọi trực tiếp bộ cài qua Windows Explorer, miễn nhiễm 100% với Antivirus và chính sách chặn PowerShell.<br>
             • <strong>Nút thao tác cập nhật trực tiếp:</strong> Thêm nút "Cài đặt & Khởi động lại ngay" và "Mở thư mục" ngay trên giao diện Cài đặt khi tải xong 100%.<br>
             • <strong>Cổng thông tin web nội bộ:</strong> Ra mắt website giới thiệu và tải nhanh tại <code>http://192.168.1.12:8080/</code>.<br>
@@ -489,10 +506,10 @@
         <!-- Item v1.0.8 -->
         <div class="accordion-item">
           <div class="accordion-header">
-            <h4>Phiên bản v1.0.8 (Khắc phục mở Settings & Macro đóng tiến trình NSIS)</h4>
+            <h4 data-i18n="changelog_title_v108">Phiên bản v1.0.8 (Khắc phục mở Settings & Macro đóng tiến trình NSIS)</h4>
             <svg class="accordion-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
           </div>
-          <div class="accordion-body">
+          <div class="accordion-body" data-i18n-html="changelog_body_v108">
             • Khắc phục triệt để lỗi không mở được cửa sổ Cài đặt từ khay hệ thống (System Tray).<br>
             • Sửa định tuyến sub-hash <code>#settings?tab=updates</code> để hiển thị chính xác tab Cập nhật.<br>
             • Tích hợp macro NSIS <code>customCheckAppRunning</code> tự đóng tiến trình AI Local Translator trước khi ghi đè file.
@@ -502,10 +519,10 @@
         <!-- Item v1.0.7 -->
         <div class="accordion-item">
           <div class="accordion-header">
-            <h4>Phiên bản v1.0.7 (Hỗ trợ đa ngôn ngữ F10 & Chống lỗi đường dẫn mạng UNC)</h4>
+            <h4 data-i18n="changelog_title_v107">Phiên bản v1.0.7 (Hỗ trợ đa ngôn ngữ F10 & Chống lỗi đường dẫn mạng UNC)</h4>
             <svg class="accordion-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
           </div>
-          <div class="accordion-body">
+          <div class="accordion-body" data-i18n-html="changelog_body_v107">
             • Hoàn thiện tính năng tự động thay thế văn bản chat (F10) cho tất cả các ngôn ngữ (Hàn, Nhật, Anh, Trung...).<br>
             • Sử dụng Win32 API <code>SetForegroundWindow</code> và P/Invoke C# để khôi phục chính xác cửa sổ chat đang hoạt động.<br>
             • Chống lỗi treo tiến trình khi người dùng mở bộ cài trực tiếp qua đường dẫn mạng LAN UNC (<code>\\server\...</code>).
@@ -521,19 +538,19 @@
   <section id="faq" class="section">
     <div class="container">
       <div class="section-header">
-        <div class="section-tag">Hỗ trợ & Xử lý sự cố</div>
-        <h2>Các Câu Hỏi Thường Gặp (FAQ)</h2>
-        <p>Giải đáp nhanh các vấn đề kỹ thuật thường gặp khi sử dụng phần mềm trong mạng nội bộ.</p>
+        <div class="section-tag" data-i18n="faq_tag">Hỗ trợ & Xử lý sự cố</div>
+        <h2 data-i18n="faq_heading">Các Câu Hỏi Thường Gặp (FAQ)</h2>
+        <p data-i18n="faq_subheading">Giải đáp nhanh các vấn đề kỹ thuật thường gặp khi sử dụng phần mềm trong mạng nội bộ.</p>
       </div>
 
       <div class="accordion" style="max-width: 900px; margin: 0 auto;">
         <!-- Q1 -->
         <div class="accordion-item open">
           <div class="accordion-header">
-            <h4>Khi nhấn F10 (hoặc F8), cửa sổ hiện lên nhưng không dịch được gì cả?</h4>
+            <h4 data-i18n="faq_q1">Khi nhấn F10 (hoặc F8), cửa sổ hiện lên nhưng không dịch được gì cả?</h4>
             <svg class="accordion-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
           </div>
-          <div class="accordion-body">
+          <div class="accordion-body" data-i18n-html="faq_a1">
             <strong>Nguyên nhân:</strong> Máy trạm của bạn đang để URL LM Studio mặc định là <code>http://127.0.0.1:1234/v1</code> (trỏ về chính máy bạn, nơi không có mô hình AI đang chạy).<br><br>
             <strong>Cách khắc phục:</strong><br>
             1. Mở <strong>Cài đặt (Settings)</strong> trên ứng dụng.<br>
@@ -545,10 +562,10 @@
         <!-- Q2 -->
         <div class="accordion-item">
           <div class="accordion-header">
-            <h4>Dữ liệu văn bản và tin nhắn dịch có bị gửi ra ngoài công ty không?</h4>
+            <h4 data-i18n="faq_q2">Dữ liệu văn bản và tin nhắn dịch có bị gửi ra ngoài công ty không?</h4>
             <svg class="accordion-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
           </div>
-          <div class="accordion-body">
+          <div class="accordion-body" data-i18n-html="faq_a2">
             <strong>Hoàn toàn KHÔNG!</strong> Toàn bộ quá trình suy luận và dịch thuật được thực hiện 100% bởi máy chủ LM Studio đặt trong mạng LAN văn phòng của bạn. Ứng dụng không có kết nối tới OpenAI hay bất kỳ đám mây công cộng nào, đảm bảo bảo mật tuyệt đối cho mọi tài liệu mật, hợp đồng hay thông tin nội bộ.
           </div>
         </div>
@@ -556,10 +573,10 @@
         <!-- Q3 -->
         <div class="accordion-item">
           <div class="accordion-header">
-            <h4>Làm sao để thay đổi các phím tắt F8, F9, F10 theo ý muốn?</h4>
+            <h4 data-i18n="faq_q3">Làm sao để thay đổi các phím tắt F8, F9, F10 theo ý muốn?</h4>
             <svg class="accordion-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
           </div>
-          <div class="accordion-body">
+          <div class="accordion-body" data-i18n-html="faq_a3">
             Bạn vào <strong>Cài đặt (Settings)</strong> -> cuộn xuống mục <strong>Keyboard Shortcuts (Phím tắt)</strong>. Tại đây bạn có thể click vào từng ô và gõ phím tắt mới (ví dụ: <code>Alt+T</code>, <code>Ctrl+Shift+Z</code>...), sau đó nhấn <strong>Save Settings</strong>. Phím tắt mới sẽ có hiệu lực ngay lập tức.
           </div>
         </div>
@@ -567,10 +584,10 @@
         <!-- Q4 -->
         <div class="accordion-item">
           <div class="accordion-header">
-            <h4>Máy khách nâng cấp bản mới bị báo lỗi hoặc không tự chạy bộ cài?</h4>
+            <h4 data-i18n="faq_q4">Máy khách nâng cấp bản mới bị báo lỗi hoặc không tự chạy bộ cài?</h4>
             <svg class="accordion-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
           </div>
-          <div class="accordion-body">
+          <div class="accordion-body" data-i18n-html="faq_a4">
             Nếu máy bạn đang ở phiên bản cũ (v1.0.6 trở về trước) và bị Windows Defender chặn ngầm, bạn chỉ cần mở trình duyệt vào địa chỉ trang web này: <code style="color: #a5b4fc;">http://192.168.1.12:8080/</code> -> Bấm nút <strong>"Tải Bộ Cài Đặt Setup"</strong> và chạy file vừa tải. Kể từ bản v1.0.9, mọi bản cập nhật sau này sẽ diễn ra tự động 100% không còn bị gián đoạn.
           </div>
         </div>
@@ -591,39 +608,40 @@
             </div>
             <span>AI Local Translator</span>
           </div>
-          <p>
+          <p data-i18n="footer_desc">
             Giải pháp dịch thuật máy tính thông minh, hiệu năng cao, bảo mật dữ liệu tuyệt đối dành cho doanh nghiệp và đội ngũ kỹ thuật.
           </p>
         </div>
 
         <div class="footer-col">
-          <h4>Điều hướng nhanh</h4>
+          <h4 data-i18n="footer_col_nav">Điều hướng nhanh</h4>
           <ul class="footer-links">
-            <li><a href="#features">Tính năng nổi bật</a></li>
-            <li><a href="#install">Hướng dẫn cài đặt</a></li>
-            <li><a href="#manual">Bảng tra phím tắt</a></li>
-            <li><a href="#download">Tải bản mới nhất</a></li>
+            <li><a href="#features" data-i18n="nav_features">Tính năng nổi bật</a></li>
+            <li><a href="#install" data-i18n="nav_install">Hướng dẫn cài đặt</a></li>
+            <li><a href="#manual" data-i18n="nav_manual">Bảng tra phím tắt</a></li>
+            <li><a href="#download" data-i18n="nav_download">Tải bản mới nhất</a></li>
           </ul>
         </div>
 
         <div class="footer-col">
-          <h4>Thông tin hạ tầng</h4>
+          <h4 data-i18n="footer_col_server">Thông tin hạ tầng</h4>
           <ul class="footer-links">
-            <li>Máy chủ LAN: <code>192.168.1.12</code></li>
-            <li>Update Port: <code>8080</code></li>
-            <li>LM Studio Port: <code>1234</code></li>
-            <li>Phát triển bởi XavisTech</li>
+            <li><span data-i18n="footer_server_lan">Máy chủ LAN:</span> <code>192.168.1.12</code></li>
+            <li><span data-i18n="footer_server_update">Update Port:</span> <code>8080</code></li>
+            <li><span data-i18n="footer_server_lm">LM Studio Port:</span> <code>1234</code></li>
+            <li data-i18n="footer_server_dev">Phát triển bởi XavisTech</li>
           </ul>
         </div>
       </div>
 
       <div class="footer-bottom">
-        <div>© 2026 XavisTech. Bảo lưu mọi quyền. Phần mềm triển khai nội bộ.</div>
-        <div>Phiên bản máy chủ: <strong class="current-version-tag" style="color: #a5b4fc;">v1.0.9</strong></div>
+        <div data-i18n="footer_rights">© 2026 XavisTech. Bảo lưu mọi quyền. Phần mềm triển khai nội bộ.</div>
+        <div><span data-i18n="footer_server_ver">Phiên bản máy chủ:</span> <strong class="current-version-tag" style="color: #a5b4fc;">v1.0.9</strong></div>
       </div>
     </div>
   </footer>
 
+  <script src="/js/translations.js"></script>
   <script src="/js/app.js"></script>
 </body>
 </html>

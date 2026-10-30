@@ -4,6 +4,7 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+  initI18n();
   initVersionSync();
   initNavigation();
   initTabs();
@@ -11,6 +12,76 @@ document.addEventListener('DOMContentLoaded', () => {
   initCopyHelpers();
   initMobileMenu();
 });
+
+let currentLang = localStorage.getItem('ai_translator_web_lang') || 'vi';
+
+/**
+ * Internationalization (i18n) Engine
+ * Seamless bilingual switching between Vietnamese and English
+ */
+function initI18n() {
+  setLanguage(currentLang);
+
+  const toggleBtn = document.getElementById('lang-toggle-btn');
+  const langMenu = document.getElementById('lang-menu');
+
+  if (toggleBtn && langMenu) {
+    toggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      langMenu.classList.toggle('open');
+    });
+
+    document.addEventListener('click', () => {
+      langMenu.classList.remove('open');
+    });
+
+    langMenu.querySelectorAll('.lang-option').forEach((opt) => {
+      opt.addEventListener('click', () => {
+        const selected = opt.getAttribute('data-lang');
+        if (selected) {
+          setLanguage(selected);
+          langMenu.classList.remove('open');
+        }
+      });
+    });
+  }
+}
+
+function setLanguage(lang) {
+  if (typeof translations === 'undefined' || !translations[lang]) return;
+  currentLang = lang;
+  localStorage.setItem('ai_translator_web_lang', lang);
+  document.documentElement.lang = lang;
+
+  const dict = translations[lang];
+
+  // Update plain text
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key] !== undefined) {
+      el.textContent = dict[key];
+    }
+  });
+
+  // Update HTML content
+  document.querySelectorAll('[data-i18n-html]').forEach((el) => {
+    const key = el.getAttribute('data-i18n-html');
+    if (dict[key] !== undefined) {
+      el.innerHTML = dict[key];
+    }
+  });
+
+  // Update Current Lang Text in Header
+  const currentLangText = document.getElementById('current-lang-text');
+  if (currentLangText) {
+    currentLangText.textContent = lang.toUpperCase();
+  }
+
+  // Update active state in dropdown
+  document.querySelectorAll('.lang-option').forEach((opt) => {
+    opt.classList.toggle('active', opt.getAttribute('data-lang') === lang);
+  });
+}
 
 /**
  * Automatically fetch updates/version.json to keep version badges,
