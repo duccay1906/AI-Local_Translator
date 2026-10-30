@@ -82,7 +82,7 @@ export const FloatingPopup: React.FC = () => {
     // Listen for OCR state updates (when user snips an image region)
     const cleanupOcrState = api.onOcrStateChange((state) => {
       if (state.status === 'processing') {
-        setOcrStatus(state.message || 'Extracting text from image (OCR)...');
+        setOcrStatus('Translating, please wait...');
         setErrorMessage(null);
         setSourceText('');
         setTranslatedText('');
@@ -264,7 +264,7 @@ export const FloatingPopup: React.FC = () => {
           <span style={{ fontSize: '13px', fontWeight: 700 }} className="gradient-text">
             AI Translate
           </span>
-          <span className="pulse-dot" title="LM Studio Status OK" />
+          <span className="pulse-dot" title="AI Ready" />
         </div>
 
         {/* Controls */}
@@ -553,7 +553,7 @@ export const FloatingPopup: React.FC = () => {
                   ) : translatedText ? (
                     translatedText
                   ) : isLoading ? (
-                    <span style={{ color: 'var(--text-dim)', fontStyle: 'italic' }}>Translating with LM Studio...</span>
+                    <span style={{ color: 'var(--text-dim)', fontStyle: 'italic' }}>Translating, please wait...</span>
                   ) : (
                     <span style={{ color: 'var(--text-dim)' }}>
                       Press <kbd style={{ background: '#1e293b', padding: '2px 6px', borderRadius: '4px', border: '1px solid #334155' }}>{settings?.hotkey || 'F8'}</kbd> to translate selected text, or <kbd style={{ background: '#1e293b', padding: '2px 6px', borderRadius: '4px', border: '1px solid #334155' }}>{settings?.ocrHotkey || 'F9'}</kbd> to snip & translate from an image.
@@ -610,7 +610,7 @@ export const FloatingPopup: React.FC = () => {
         </div>
 
         <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
-          {translatedText ? `${translatedText.split(/\s+/).filter(Boolean).length} words` : 'LM Studio AI'}
+          {translatedText ? `${translatedText.split(/\s+/).filter(Boolean).length} words` : 'AI Translate'}
         </span>
       </div>
     </div>

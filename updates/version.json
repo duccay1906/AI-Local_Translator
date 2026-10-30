@@ -1,8 +1,8 @@
 {
-  "version": "1.0.3",
+  "version": "1.0.4",
   "releaseDate": "2026-10-30",
-  "downloadUrl": "AI Local Translator Setup 1.0.3.exe",
-  "installerUrl": "AI Local Translator Setup 1.0.3.exe",
-  "portableUrl": "AI Local Translator 1.0.3.exe",
-  "releaseNotes": "Nang cap tinh nang dich anh bang mo hinh Vision AI da phuong tien (khong dung OCR, hien thi song song anh goc va ban dich Markdown)"
+  "downloadUrl": "AI Local Translator Setup 1.0.4.exe",
+  "installerUrl": "AI Local Translator Setup 1.0.4.exe",
+  "portableUrl": "AI Local Translator 1.0.4.exe",
+  "releaseNotes": "Standardized generic English status messages and added mouse zoom and pan controls for image preview in F9 dialog"
 }

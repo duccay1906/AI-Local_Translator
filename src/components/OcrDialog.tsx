@@ -13,9 +13,11 @@ import {
   Volume2,
   VolumeX,
   RotateCw,
+  RotateCcw,
   AlertCircle,
   FileImage,
   MessageSquare,
+  Move,
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -42,10 +44,14 @@ export const OcrDialog: React.FC = () => {
   const [copiedImage, setCopiedImage] = useState<boolean>(false);
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [zoom, setZoom] = useState<number>(100);
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [fitMode, setFitMode] = useState<'fit' | 'original'>('fit');
+  const [isPanning, setIsPanning] = useState<boolean>(false);
   const [imageSize, setImageSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
 
   const textContainerRef = useRef<HTMLDivElement | null>(null);
+  const imageViewportRef = useRef<HTMLDivElement | null>(null);
+  const panStartRef = useRef<{ x: number; y: number; panX: number; panY: number }>({ x: 0, y: 0, panX: 0, panY: 0 });
 
   // Setup IPC listeners
   useEffect(() => {
@@ -56,6 +62,9 @@ export const OcrDialog: React.FC = () => {
       setTranslatedText('');
       setErrorMessage(null);
       setIsStreaming(true);
+      setFitMode('fit');
+      setZoom(100);
+      setPan({ x: 0, y: 0 });
     });
 
     const cleanupChunk = api.onVisionTranslateChunk((chunk) => {
@@ -138,6 +147,82 @@ export const OcrDialog: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Compute the fit-to-window scale factor in percentage
+  const getFitZoom = () => {
+    if (!imageViewportRef.current || !imageSize.width || !imageSize.height) return 100;
+    const rect = imageViewportRef.current.getBoundingClientRect();
+    const availableW = Math.max(rect.width - 32, 100);
+    const availableH = Math.max(rect.height - 32, 100);
+    const scale = Math.min(availableW / imageSize.width, availableH / imageSize.height);
+    return Math.max(10, Math.round(scale * 100));
+  };
+
+  const handleZoomIn = () => {
+    const base = fitMode === 'fit' ? getFitZoom() : zoom;
+    setFitMode('original');
+    setZoom(Math.min(500, base + 20));
+  };
+
+  const handleZoomOut = () => {
+    const base = fitMode === 'fit' ? getFitZoom() : zoom;
+    setFitMode('original');
+    setZoom(Math.max(20, base - 20));
+  };
+
+  const handleToggleFit = () => {
+    if (fitMode === 'fit') {
+      setFitMode('original');
+      setZoom(100);
+      setPan({ x: 0, y: 0 });
+    } else {
+      setFitMode('fit');
+      setZoom(100);
+      setPan({ x: 0, y: 0 });
+    }
+  };
+
+  const handleResetZoomPan = () => {
+    setFitMode('fit');
+    setZoom(100);
+    setPan({ x: 0, y: 0 });
+  };
+
+  // Mouse wheel zoom
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const currentBase = fitMode === 'fit' ? getFitZoom() : zoom;
+    const factor = e.deltaY < 0 ? 1.15 : 0.87;
+    const newZoom = Math.min(500, Math.max(20, Math.round(currentBase * factor)));
+    setFitMode('original');
+    setZoom(newZoom);
+  };
+
+  // Mouse drag pan
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return; // Left click only
+    setIsPanning(true);
+    panStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      panX: pan.x,
+      panY: pan.y,
+    };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isPanning) return;
+    const dx = e.clientX - panStartRef.current.x;
+    const dy = e.clientY - panStartRef.current.y;
+    setPan({
+      x: panStartRef.current.panX + dx,
+      y: panStartRef.current.panY + dy,
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsPanning(false);
+  };
 
   const handleTogglePin = () => {
     const next = !isPinned;
@@ -371,7 +456,7 @@ export const OcrDialog: React.FC = () => {
                   border: isStreaming ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)',
                 }}
               >
-                {isStreaming ? 'Translating...' : 'Multimodal Vision'}
+                {isStreaming ? 'Translating...' : 'Ready'}
               </span>
             </div>
           </div>
@@ -520,79 +605,105 @@ export const OcrDialog: React.FC = () => {
               flexShrink: 0,
             }}
           >
-            <span style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-dim)' }}>
-              Original Capture {imageSize.width > 0 && `(${imageSize.width} × ${imageSize.height} px)`}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-dim)' }}>
+                Original Capture {imageSize.width > 0 && `(${imageSize.width} × ${imageSize.height} px)`}
+              </span>
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Move size={11} /> Drag to pan • Scroll to zoom
+              </span>
+            </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
               <button
                 className="btn-icon"
-                onClick={() => setZoom((z) => Math.max(40, z - 20))}
-                title="Zoom Out"
+                onClick={handleZoomOut}
+                title="Zoom Out (Scroll Down)"
                 style={{ width: '22px', height: '22px' }}
               >
                 <ZoomOut size={12} />
               </button>
-              <span style={{ fontSize: '11px', minWidth: '38px', textAlign: 'center', fontWeight: 600 }}>
+              <span style={{ fontSize: '11px', minWidth: '40px', textAlign: 'center', fontWeight: 600 }}>
                 {fitMode === 'fit' ? 'Fit' : `${zoom}%`}
               </span>
               <button
                 className="btn-icon"
-                onClick={() => {
-                  setFitMode('original');
-                  setZoom((z) => Math.min(250, z + 20));
-                }}
-                title="Zoom In"
+                onClick={handleZoomIn}
+                title="Zoom In (Scroll Up)"
                 style={{ width: '22px', height: '22px' }}
               >
                 <ZoomIn size={12} />
               </button>
               <button
                 className="btn-icon"
-                onClick={() => {
-                  if (fitMode === 'fit') {
-                    setFitMode('original');
-                    setZoom(100);
-                  } else {
-                    setFitMode('fit');
-                  }
-                }}
+                onClick={handleToggleFit}
                 title={fitMode === 'fit' ? 'View 100% Actual Size' : 'Fit to Window'}
-                style={{ width: '22px', height: '22px', marginLeft: '4px' }}
+                style={{ width: '22px', height: '22px', marginLeft: '2px' }}
               >
                 {fitMode === 'fit' ? <Maximize2 size={12} /> : <Minimize2 size={12} />}
+              </button>
+              <button
+                className="btn-icon"
+                onClick={handleResetZoomPan}
+                title="Reset View (Double-click image)"
+                style={{ width: '22px', height: '22px' }}
+              >
+                <RotateCcw size={12} />
               </button>
             </div>
           </div>
 
-          {/* Image Display Area */}
+          {/* Image Display Area with Mouse Zoom and Pan */}
           <div
+            ref={imageViewportRef}
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onDoubleClick={handleToggleFit}
             style={{
               flex: 1,
-              overflow: 'auto',
+              overflow: 'hidden',
+              position: 'relative',
               display: 'flex',
-              alignItems: fitMode === 'fit' ? 'center' : 'flex-start',
-              justifyContent: fitMode === 'fit' ? 'center' : 'flex-start',
-              padding: '16px',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: isPanning ? 'grabbing' : 'grab',
+              userSelect: 'none',
               backgroundImage: 'radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 0)',
               backgroundSize: '16px 16px',
             }}
           >
             {imagePreview ? (
-              <img
-                src={imagePreview}
-                alt="Captured screen snippet"
+              <div
                 style={{
-                  maxWidth: fitMode === 'fit' ? '100%' : 'none',
-                  maxHeight: fitMode === 'fit' ? '100%' : 'none',
-                  width: fitMode === 'original' ? `${(imageSize.width * zoom) / 100}px` : 'auto',
-                  height: fitMode === 'original' ? `${(imageSize.height * zoom) / 100}px` : 'auto',
-                  objectFit: 'contain',
-                  borderRadius: 'var(--radius-sm)',
-                  boxShadow: '0 8px 30px rgba(0, 0, 0, 0.6), 0 0 1px rgba(255, 255, 255, 0.1)',
-                  transition: 'width 0.15s ease, height 0.15s ease',
+                  transform: `translate(${pan.x}px, ${pan.y}px)`,
+                  transition: isPanning ? 'none' : 'transform 0.05s ease-out',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  maxWidth: fitMode === 'fit' ? '92%' : 'none',
+                  maxHeight: fitMode === 'fit' ? '92%' : 'none',
+                  pointerEvents: 'none',
                 }}
-              />
+              >
+                <img
+                  src={imagePreview}
+                  alt="Captured screen snippet"
+                  draggable={false}
+                  style={{
+                    maxWidth: fitMode === 'fit' ? '100%' : 'none',
+                    maxHeight: fitMode === 'fit' ? '100%' : 'none',
+                    width: fitMode === 'fit' ? 'auto' : `${(imageSize.width * zoom) / 100}px`,
+                    height: fitMode === 'fit' ? 'auto' : `${(imageSize.height * zoom) / 100}px`,
+                    objectFit: 'contain',
+                    borderRadius: 'var(--radius-sm)',
+                    boxShadow: '0 8px 30px rgba(0, 0, 0, 0.6), 0 0 1px rgba(255, 255, 255, 0.1)',
+                    pointerEvents: 'none',
+                  }}
+                />
+              </div>
             ) : (
               <div style={{ color: 'var(--text-dim)', fontSize: '12px' }}>
                 No image preview available
@@ -711,10 +822,10 @@ export const OcrDialog: React.FC = () => {
               >
                 <RotateCw size={22} className="spin-animation" color="var(--accent-primary)" />
                 <div style={{ fontSize: '13px', fontWeight: 500 }}>
-                  Gemma 4 Vision is analyzing and translating the image...
+                  Translating, please wait...
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
-                  Reading text, conversation flow, timestamps, and context directly from visual input.
+                  Processing image and generating translation...
                 </div>
               </div>
             ) : (
@@ -748,7 +859,7 @@ export const OcrDialog: React.FC = () => {
               flexShrink: 0,
             }}
           >
-            <span>✨ Powered by LM Studio Multimodal Vision</span>
+            <span>✨ AI Vision Translation</span>
 
             <button
               className="btn-primary"

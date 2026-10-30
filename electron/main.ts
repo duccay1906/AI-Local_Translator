@@ -1019,7 +1019,7 @@ ipcMain.on('complete-snip-selection', async (_, payload: SnipSelectionResult) =>
       },
     });
   } catch (err: any) {
-    ocrDialogWindow?.webContents.send('vision-translate-error', err.message || 'Could not connect to LM Studio Vision model');
+    ocrDialogWindow?.webContents.send('vision-translate-error', err.message || 'Could not connect to translation service');
   }
 });
 
