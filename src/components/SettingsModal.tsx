@@ -173,7 +173,7 @@ export const SettingsModal: React.FC = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Auto-Update States
-  const [appVersion, setAppVersion] = useState<string>('1.0.1');
+  const [appVersion, setAppVersion] = useState<string>('1.0.8');
   const [isCheckingUpdate, setIsCheckingUpdate] = useState<boolean>(false);
   const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null);
   const [isDownloadingUpdate, setIsDownloadingUpdate] = useState<boolean>(false);

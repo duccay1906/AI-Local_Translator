@@ -17,23 +17,23 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  if (route === '#splash') {
+  if (route.startsWith('#splash')) {
     return <SplashScreen />;
   }
 
-  if (route === '#settings') {
+  if (route.startsWith('#settings')) {
     return <SettingsModal />;
   }
 
-  if (route === '#snip') {
+  if (route.startsWith('#snip')) {
     return <SnipOverlay />;
   }
 
-  if (route === '#ocr') {
+  if (route.startsWith('#ocr')) {
     return <OcrDialog />;
   }
 
-  if (route === '#reply') {
+  if (route.startsWith('#reply')) {
     return <QuickReplyDialog />;
   }
 

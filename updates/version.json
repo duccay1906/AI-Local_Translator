@@ -1,8 +1,8 @@
 {
-  "version": "1.0.7",
+  "version": "1.0.8",
   "releaseDate": "2026-10-30",
-  "downloadUrl": "AI_Local_Translator_Setup_1.0.7.exe",
-  "installerUrl": "AI_Local_Translator_Setup_1.0.7.exe",
-  "portableUrl": "AI_Local_Translator_1.0.7.exe",
-  "releaseNotes": "• Quick Chat Reply & Replace (F10): Fixed text replacement across all outgoing languages (English, Japanese, Chinese, Korean, etc.) with native Win32 target window focus restoration.\n• Improved Language & Tone Switching: Instant cancellation of previous translation streams without socket errors and automatic focus release on language dropdown.\n• LAN Auto-Updater Reliability: Hardened working directory handling and automatic SmartScreen Zone.Identifier unblocking for seamless updates even when originally installed from a LAN network share."
+  "downloadUrl": "AI_Local_Translator_Setup_1.0.8.exe",
+  "installerUrl": "AI_Local_Translator_Setup_1.0.8.exe",
+  "portableUrl": "AI_Local_Translator_1.0.8.exe",
+  "releaseNotes": "• Tray & Settings Window Fix: Guaranteed Settings modal display when opened from the system tray menu or double click, fixing hidden window state.\n• Sub-route Navigation: Fixed routing for sub-tabs (#settings?tab=updates) to correctly render SettingsModal.\n• NSIS Auto-Updater File Lock Fix: Bundled custom NSIS process cleaner that automatically terminates any lingering application instances before unpacking, allowing seamless updates from v1.0.6 machines without blocking message boxes.\n• Multi-language Chat Text Replace (F10): Reliable text replacement and focus restoration for all target languages."
 }

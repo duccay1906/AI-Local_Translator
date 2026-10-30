@@ -485,8 +485,11 @@ function hideReplyWindow() {
 
 function createSettingsWindow(initialTab?: string) {
   const hash = initialTab ? `settings?tab=${initialTab}` : 'settings';
-  if (settingsWindow) {
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
     if (settingsWindow.isMinimized()) settingsWindow.restore();
+    if (!settingsWindow.isVisible()) {
+      settingsWindow.show();
+    }
     settingsWindow.focus();
     if (initialTab) {
       settingsWindow.webContents.send('switch-settings-tab', initialTab);
@@ -515,15 +518,29 @@ function createSettingsWindow(initialTab?: string) {
     settingsWindow.loadFile(path.join(__dirname, '../dist/index.html'), { hash });
   }
 
-  settingsWindow.once('ready-to-show', () => {
-    setTimeout(() => {
+  const showSettings = () => {
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
       if (splashWindow && !splashWindow.isDestroyed()) {
         splashWindow.close();
         splashWindow = null;
       }
-      settingsWindow?.show();
-    }, 400);
+      if (!settingsWindow.isVisible()) {
+        settingsWindow.show();
+      }
+      settingsWindow.focus();
+    }
+  };
+
+  settingsWindow.once('ready-to-show', () => {
+    setTimeout(showSettings, 200);
   });
+
+  settingsWindow.webContents.once('did-finish-load', () => {
+    setTimeout(showSettings, 300);
+  });
+
+  // Fallback safety timer so window is guaranteed to show
+  setTimeout(showSettings, 800);
 
   settingsWindow.on('closed', () => {
     settingsWindow = null;
