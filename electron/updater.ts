@@ -6,6 +6,9 @@ import path from 'path';
 import { spawn } from 'child_process';
 import { AppUpdateInfo, UpdateCheckResult } from '../src/types';
 
+const SYSTEM_ROOT = process.env.SystemRoot || process.env.windir || 'C:\\Windows';
+const POWERSHELL_EXE = path.join(SYSTEM_ROOT, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+
 /**
  * Parses and compares two semver strings (e.g. "1.0.2" vs "1.0.1").
  * Returns > 0 if v1 > v2, < 0 if v1 < v2, and 0 if equal.
@@ -247,7 +250,8 @@ Remove-Item -Path $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyConti
 
     fs.writeFileSync(tempPs1, scriptContent, 'utf-8');
 
-    spawn('powershell.exe', [
+    const powershellBin = fs.existsSync(POWERSHELL_EXE) ? POWERSHELL_EXE : 'powershell.exe';
+    const child = spawn(powershellBin, [
       '-WindowStyle', 'Hidden',
       '-NoProfile',
       '-NonInteractive',
@@ -258,7 +262,12 @@ Remove-Item -Path $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyConti
       detached: true,
       stdio: 'ignore',
       windowsHide: true,
-    }).unref();
+    });
+
+    child.on('error', (err) => {
+      console.error('Failed to spawn updater PowerShell process:', err);
+    });
+    child.unref();
 
     app.quit();
     return;
@@ -282,7 +291,8 @@ Remove-Item -Path $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyConti
 
   fs.writeFileSync(tempPs1, scriptContent, 'utf-8');
 
-  spawn('powershell.exe', [
+  const powershellBin = fs.existsSync(POWERSHELL_EXE) ? POWERSHELL_EXE : 'powershell.exe';
+  const child = spawn(powershellBin, [
     '-WindowStyle', 'Hidden',
     '-NoProfile',
     '-NonInteractive',
@@ -293,7 +303,12 @@ Remove-Item -Path $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyConti
     detached: true,
     stdio: 'ignore',
     windowsHide: true,
-  }).unref();
+  });
+
+  child.on('error', (err) => {
+    console.error('Failed to spawn installer PowerShell process:', err);
+  });
+  child.unref();
 
   app.quit();
 }

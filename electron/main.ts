@@ -14,6 +14,29 @@ try {
   }
 } catch (e) {}
 
+// Self-healing environment PATH: ensure Windows System32 and PowerShell paths are ALWAYS present
+const SYSTEM_ROOT = process.env.SystemRoot || process.env.windir || 'C:\\Windows';
+const SYSTEM32_DIR = path.join(SYSTEM_ROOT, 'System32');
+const POWERSHELL_DIR = path.join(SYSTEM32_DIR, 'WindowsPowerShell', 'v1.0');
+const WSCRIPT_EXE = path.join(SYSTEM32_DIR, 'wscript.exe');
+const POWERSHELL_EXE = path.join(POWERSHELL_DIR, 'powershell.exe');
+const REG_EXE = path.join(SYSTEM32_DIR, 'reg.exe');
+
+try {
+  const currentPath = process.env.PATH || '';
+  const parts = currentPath.split(';');
+  const needed = [SYSTEM32_DIR, SYSTEM_ROOT, POWERSHELL_DIR];
+  const missing = needed.filter((dir) => !parts.some((p) => p.toLowerCase() === dir.toLowerCase()));
+  if (missing.length > 0) {
+    process.env.PATH = `${missing.join(';')};${currentPath}`;
+  }
+} catch (e) {}
+
+// Global uncaught exception protection to avoid raw JavaScript error dialogs
+process.on('uncaughtException', (err) => {
+  console.error('Unhandled main process exception caught:', err);
+});
+
 let popupWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
 let splashWindow: BrowserWindow | null = null;
@@ -187,10 +210,15 @@ function applyAutoStartSetting(enabled: boolean) {
 
     const regKey = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run';
     const regName = 'AILocalTranslator';
+    const regBin = fs.existsSync(REG_EXE) ? REG_EXE : 'reg.exe';
     if (enabled) {
-      exec(`reg add "${regKey}" /v "${regName}" /t REG_SZ /d "\\"${targetExe}\\" --hidden" /f`);
+      execFile(regBin, ['add', regKey, '/v', regName, '/t', 'REG_SZ', '/d', `"${targetExe}" --hidden`, '/f'], (err) => {
+        if (err) console.warn('Registry auto-start add warning:', err.message);
+      });
     } else {
-      exec(`reg delete "${regKey}" /v "${regName}" /f`);
+      execFile(regBin, ['delete', regKey, '/v', regName, '/f'], (err) => {
+        if (err) console.warn('Registry auto-start delete warning:', err.message);
+      });
     }
   } catch (err) {
     console.error('Failed to configure Windows auto-start:', err);
@@ -834,8 +862,9 @@ while ($true) {
 `;
     fs.writeFileSync(workerPs1, psContent, 'utf-8');
 
+    const psBin = fs.existsSync(POWERSHELL_EXE) ? POWERSHELL_EXE : 'powershell.exe';
     const worker = spawn(
-      'powershell.exe',
+      psBin,
       ['-WindowStyle', 'Hidden', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', workerPs1],
       {
         cwd: tempDir,
@@ -844,6 +873,12 @@ while ($true) {
       }
     );
     winInputWorker = worker;
+
+    worker.on('error', (err) => {
+      console.warn('WinInputWorker process error:', err.message);
+      winInputWorkerReady = false;
+      winInputWorker = null;
+    });
 
     if (worker.stdout) {
       worker.stdout.setEncoding('utf8');
@@ -933,10 +968,11 @@ async function captureTargetChatWindow(): Promise<void> {
 
 async function runVbsHelper(primary: string, fallback: string, args: string[] = []): Promise<void> {
   const scriptToUse = fs.existsSync(primary) ? primary : fallback;
+  const wscriptBin = fs.existsSync(WSCRIPT_EXE) ? WSCRIPT_EXE : 'wscript.exe';
   await new Promise<void>((resolve) => {
     // Use wscript.exe (GUI subsystem) + windowsHide so Windows Terminal never steals focus from active window
     execFile(
-      'wscript.exe',
+      wscriptBin,
       ['//B', '//Nologo', scriptToUse, ...args],
       { windowsHide: true, cwd: app.getPath('temp') },
       (error) => {
