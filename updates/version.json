@@ -1,8 +1,8 @@
 {
   "version": "1.0.4",
   "releaseDate": "2026-10-30",
-  "downloadUrl": "AI Local Translator Setup 1.0.4.exe",
-  "installerUrl": "AI Local Translator Setup 1.0.4.exe",
-  "portableUrl": "AI Local Translator 1.0.4.exe",
-  "releaseNotes": "Standardized generic English status messages and added mouse zoom and pan controls for image preview in F9 dialog"
+  "downloadUrl": "AI_Local_Translator_Setup_1.0.4.exe",
+  "installerUrl": "AI_Local_Translator_Setup_1.0.4.exe",
+  "portableUrl": "AI_Local_Translator_1.0.4.exe",
+  "releaseNotes": "Fix LAN auto-update URL encoding and support seamless background install"
 }

@@ -155,7 +155,8 @@ export async function downloadUpdate(
       const parsedUrl = new URL(downloadUrl);
       const transport = parsedUrl.protocol === 'https:' ? https : http;
 
-      const fileName = path.basename(parsedUrl.pathname) || `AI_Local_Translator_Update_${Date.now()}.exe`;
+      const rawFileName = path.basename(parsedUrl.pathname) || `AI_Local_Translator_Update_${Date.now()}.exe`;
+      const fileName = decodeURIComponent(rawFileName);
       const tempPath = path.join(app.getPath('temp'), fileName);
       const fileStream = fs.createWriteStream(tempPath);
 
@@ -206,25 +207,49 @@ export async function downloadUpdate(
 
 /**
  * Applies the update and restarts the application:
- * - If running as Portable: Uses a small detached PowerShell helper to overwrite the running exe and relaunch.
- * - If running as Installer: Launches the installer and quits the current process.
+ * - If running as Portable: Uses a hidden detached PowerShell script to wait for the old process
+ *   to release file locks, overwrites the portable exe, and relaunches it.
+ * - If running as Installer: Launches the installer in a hidden/background helper and quits.
  */
 export function applyUpdateAndRestart(downloadedFilePath: string): void {
   const portableExe = process.env.PORTABLE_EXECUTABLE_FILE;
 
   if (portableExe && fs.existsSync(portableExe)) {
     // Portable executable update
-    const tempBat = path.join(app.getPath('temp'), `apply_update_${Date.now()}.bat`);
-    const scriptContent = `@echo off
-timeout /t 1 /nobreak >nul
-copy /y "${downloadedFilePath}" "${portableExe}" >nul
-start "" "${portableExe}"
-del "%~f0"
+    const tempPs1 = path.join(app.getPath('temp'), `apply_update_${Date.now()}.ps1`);
+    const escapedSource = downloadedFilePath.replace(/'/g, "''");
+    const escapedTarget = portableExe.replace(/'/g, "''");
+
+    const scriptContent = `Start-Sleep -Seconds 1
+$source = '${escapedSource}'
+$target = '${escapedTarget}'
+$success = $false
+
+for ($i = 0; $i -lt 30; $i++) {
+    try {
+        Copy-Item -Path $source -Destination $target -Force -ErrorAction Stop
+        $success = $true
+        break
+    } catch {
+        Start-Sleep -Milliseconds 500
+    }
+}
+
+if ($success) {
+    Start-Process -FilePath $target
+}
+Remove-Item -Path $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
 `;
 
-    fs.writeFileSync(tempBat, scriptContent, 'utf-8');
+    fs.writeFileSync(tempPs1, scriptContent, 'utf-8');
 
-    spawn('cmd.exe', ['/c', tempBat], {
+    spawn('powershell.exe', [
+      '-WindowStyle', 'Hidden',
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy', 'Bypass',
+      '-File', tempPs1,
+    ], {
       detached: true,
       stdio: 'ignore',
       windowsHide: true,
@@ -235,16 +260,24 @@ del "%~f0"
   }
 
   // Installer update (or normal exe)
-  const tempBat = path.join(app.getPath('temp'), `apply_installer_${Date.now()}.bat`);
-  const scriptContent = `@echo off
-timeout /t 2 /nobreak >nul
-start "" "${downloadedFilePath}"
-del "%~f0"
+  const tempPs1 = path.join(app.getPath('temp'), `apply_installer_${Date.now()}.ps1`);
+  const escapedInstaller = downloadedFilePath.replace(/'/g, "''");
+
+  const scriptContent = `Start-Sleep -Seconds 2
+$installer = '${escapedInstaller}'
+Start-Process -FilePath $installer
+Remove-Item -Path $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
 `;
 
-  fs.writeFileSync(tempBat, scriptContent, 'utf-8');
+  fs.writeFileSync(tempPs1, scriptContent, 'utf-8');
 
-  spawn('cmd.exe', ['/c', tempBat], {
+  spawn('powershell.exe', [
+    '-WindowStyle', 'Hidden',
+    '-NoProfile',
+    '-NonInteractive',
+    '-ExecutionPolicy', 'Bypass',
+    '-File', tempPs1,
+  ], {
     detached: true,
     stdio: 'ignore',
     windowsHide: true,

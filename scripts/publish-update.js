@@ -41,17 +41,29 @@ const installerExe = releaseFiles.find((f) => /setup/i.test(f) && f.includes(ver
 const portableExe = releaseFiles.find((f) => !/setup/i.test(f) && f.includes(version))
   || releaseFiles.filter((f) => !/setup/i.test(f)).sort((a, b) => fs.statSync(path.join(RELEASE_DIR, b)).mtimeMs - fs.statSync(path.join(RELEASE_DIR, a)).mtimeMs)[0];
 
+let targetInstaller = installerExe;
 if (installerExe) {
+  const cleanInstaller = installerExe.replace(/\s+/g, '_');
   console.log(`📦 Found Installer build: ${installerExe}`);
   fs.copyFileSync(path.join(RELEASE_DIR, installerExe), path.join(UPDATES_DIR, installerExe));
+  if (cleanInstaller !== installerExe) {
+    fs.copyFileSync(path.join(RELEASE_DIR, installerExe), path.join(UPDATES_DIR, cleanInstaller));
+  }
+  targetInstaller = cleanInstaller;
 }
 
+let targetPortable = portableExe;
 if (portableExe) {
+  const cleanPortable = portableExe.replace(/\s+/g, '_');
   console.log(`📦 Found Portable build:  ${portableExe}`);
   fs.copyFileSync(path.join(RELEASE_DIR, portableExe), path.join(UPDATES_DIR, portableExe));
+  if (cleanPortable !== portableExe) {
+    fs.copyFileSync(path.join(RELEASE_DIR, portableExe), path.join(UPDATES_DIR, cleanPortable));
+  }
+  targetPortable = cleanPortable;
 }
 
-const primaryExe = installerExe || portableExe || releaseFiles[0];
+const primaryExe = targetInstaller || targetPortable || releaseFiles[0].replace(/\s+/g, '_');
 
 const releaseNotes = process.argv.slice(2).join(' ') || 
   `- Version ${version} release.\n- Improved performance, visual OCR dialog enhancements, and bug fixes.`;
@@ -60,8 +72,8 @@ const manifest = {
   version: version,
   releaseDate: new Date().toISOString().split('T')[0],
   downloadUrl: primaryExe,
-  installerUrl: installerExe || primaryExe,
-  portableUrl: portableExe || primaryExe,
+  installerUrl: targetInstaller || primaryExe,
+  portableUrl: targetPortable || primaryExe,
   releaseNotes: releaseNotes,
 };
 
