@@ -271,7 +271,12 @@ Remove-Item -Path $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyConti
   const scriptContent = `Start-Sleep -Seconds 2
 $installer = '${escapedInstaller}'
 Unblock-File -Path $installer -ErrorAction SilentlyContinue
-Start-Process -FilePath $installer -WorkingDirectory '${tempDir.replace(/'/g, "''")}'
+
+# Ensure old instances are closed so NSIS doesn't block on file locks
+Get-Process -Name "AI Local Translator*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep -Milliseconds 600
+
+Start-Process -FilePath $installer -ArgumentList "/S" -WorkingDirectory '${tempDir.replace(/'/g, "''")}'
 Remove-Item -Path $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
 `;
 
