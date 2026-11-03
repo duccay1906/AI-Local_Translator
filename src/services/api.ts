@@ -34,6 +34,13 @@ export const api = {
     return settings;
   },
 
+  onSettingsUpdated: (callback: (settings: AppSettings) => void) => {
+    if (window.electronAPI?.onSettingsUpdated) {
+      return window.electronAPI.onSettingsUpdated(callback);
+    }
+    return () => {};
+  },
+
   fetchModels: async (baseUrl: string): Promise<string[]> => {
     if (window.electronAPI) {
       return await window.electronAPI.fetchModels(baseUrl);

@@ -24,12 +24,5 @@ End If
 ' lmStudioGui = "C:\Program Files\LM Studio\LM Studio.exe"
 ' If fso.FileExists(lmStudioGui) Then WshShell.Run """" & lmStudioGui & """", 1, False
 
-' 3. Khoi dong ung dung AI Local Translator
-appInstalled = localAppData & "\Programs\ai-local-translator\AI Local Translator.exe"
-appPortable = "D:\Works\XavisTech\AI_Translate\release\AI Local Translator 1.0.1.exe"
-
-If fso.FileExists(appInstalled) Then
-    WshShell.Run """" & appInstalled & """", 1, False
-ElseIf fso.FileExists(appPortable) Then
-    WshShell.Run """" & appPortable & """", 1, False
-End If
+' 3. Ung dung AI Local Translator tu dong khoi dong qua Registry Run cua Windows (HKCU\...\Run)
+' de dam bao Single Instance va tham so --hidden, khong can chay trung lap tai day.

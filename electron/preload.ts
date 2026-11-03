@@ -146,6 +146,11 @@ const electronAPI = {
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings: any) => ipcRenderer.invoke('save-settings', settings),
   fetchModels: (baseUrl: string) => ipcRenderer.invoke('fetch-models', baseUrl),
+  onSettingsUpdated: (callback: (settings: any) => void) => {
+    const listener = (_: any, s: any) => callback(s);
+    ipcRenderer.on('settings-updated', listener);
+    return () => ipcRenderer.removeListener('settings-updated', listener);
+  },
 
   // Floating Window Controls
   closePopup: () => ipcRenderer.send('close-popup'),

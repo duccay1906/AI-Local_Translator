@@ -1245,6 +1245,8 @@ async function startReplyStream(text: string, targetLang: string, tone: ReplyTon
 
   if (!text || !text.trim()) return;
 
+  activeSettings = loadSettings();
+
   try {
     currentReplyAbortController = await streamTranslation({
       baseUrl: activeSettings.lmStudioUrl,
@@ -1446,6 +1448,16 @@ function registerHotkeys() {
   }
 }
 
+// Enforce single instance lock to prevent duplicate conflicting processes
+const gotTheSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotTheSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    createSettingsWindow();
+  });
+}
+
 // App lifecycle
 app.whenReady().then(() => {
   const isHiddenBoot = process.argv.includes('--hidden');
@@ -1535,6 +1547,12 @@ ipcMain.handle('save-settings', (_, newSettings: AppSettings) => {
   applyAutoStartSetting(activeSettings.autoStartWithWindows ?? true);
   registerHotkeys();
   updateTrayMenu();
+
+  // Broadcast settings change to all active renderer windows immediately
+  popupWindow?.webContents.send('settings-updated', activeSettings);
+  settingsWindow?.webContents.send('settings-updated', activeSettings);
+  replyWindow?.webContents.send('settings-updated', activeSettings);
+  ocrDialogWindow?.webContents.send('settings-updated', activeSettings);
   return activeSettings;
 });
 
@@ -1754,6 +1772,8 @@ ipcMain.on('complete-snip-selection', async (_, payload: SnipSelectionResult) =>
     currentVisionAbortController = null;
   }
 
+  activeSettings = loadSettings();
+
   try {
     currentVisionAbortController = await streamVisionTranslation({
       baseUrl: activeSettings.lmStudioUrl,
@@ -1797,6 +1817,7 @@ ipcMain.on('start-vision-translation', async (event, { imageBase64, targetLang }
     currentVisionAbortController = null;
   }
 
+  activeSettings = loadSettings();
   const lang = targetLang || activeSettings.targetLanguage || 'Vietnamese';
 
   try {
@@ -1851,6 +1872,7 @@ ipcMain.on('start-translation', async (event, { text, targetLang }: { text: stri
     currentAbortController = null;
   }
 
+  activeSettings = loadSettings();
   const lang = targetLang || activeSettings.targetLanguage || 'Vietnamese';
 
   try {

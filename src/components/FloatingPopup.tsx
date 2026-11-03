@@ -80,6 +80,18 @@ export const FloatingPopup: React.FC = () => {
       }
     });
 
+    // Listen for real-time settings updates from Settings modal
+    const cleanupSettings = api.onSettingsUpdated((newSettings) => {
+      setSettings(newSettings);
+      if (newSettings.targetLanguage) {
+        setTargetLang(newSettings.targetLanguage);
+        targetLangRef.current = newSettings.targetLanguage;
+      }
+      if (newSettings.opacity !== undefined) {
+        setPopupOpacity(newSettings.opacity);
+      }
+    });
+
     // Listen for OCR state updates (when user snips an image region)
     const cleanupOcrState = api.onOcrStateChange((state) => {
       if (state.status === 'processing') {
@@ -146,6 +158,7 @@ export const FloatingPopup: React.FC = () => {
     });
 
     return () => {
+      cleanupSettings();
       cleanupOcrState();
       cleanupTrigger();
       cleanupVisual();
