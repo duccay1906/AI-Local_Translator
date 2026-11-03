@@ -1,8 +1,8 @@
 {
-  "version": "1.0.9",
-  "releaseDate": "2026-10-30",
-  "downloadUrl": "AI_Local_Translator_Setup_1.0.9.exe",
-  "installerUrl": "AI_Local_Translator_Setup_1.0.9.exe",
-  "portableUrl": "AI_Local_Translator_1.0.9.exe",
-  "releaseNotes": "• Native Windows Shell Auto-Updater: Completely replaced background scripts with native Electron shell.openPath() via Windows Explorer, eliminating all Antivirus/EDR dropper blocks and PowerShell execution policy restrictions.\n• In-App Installation Controls: Added prominent 'Cài đặt & Khởi động lại ngay' and 'Mở thư mục' action buttons directly on the Updates interface when 100% download completes.\n• LAN Web Download Portal: Instant web landing page at http://192.168.1.12:8080/ for direct browser one-click downloads across LAN clients.\n• Tray & Settings Reliability: Seamless settings window focus and display across all tabs."
+  "version": "2.0.0",
+  "releaseDate": "2026-11-03",
+  "downloadUrl": "AI_Local_Translator_Setup_2.0.0.exe",
+  "installerUrl": "AI_Local_Translator_Setup_2.0.0.exe",
+  "portableUrl": "AI_Local_Translator_2.0.0.exe",
+  "releaseNotes": "• Single Instance Lock: Ngan chan triet de mo trung lap nhieu tien trinh gay xung dot settings va chiem dung phim tat.\n• Dynamic Settings Sync: Tu dong dong bo IP LM Studio va model AI toi toan bo cac cua so ngay khi Save ma khong can khoi dong lai.\n• Dynamic Server Address Resolution: Luon doc dia chi may chu moi nhat tu o dia truoc khi goi API dich, cham dut loi ETIMEDOUT may chu cu.\n• Bilingual Documentation Portal: Nang cap website song ngu Tieng Viet / Tieng Anh voi segmented pill switch va chong cache tu dong."
 }

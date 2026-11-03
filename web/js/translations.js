@@ -128,6 +128,7 @@ const translations = {
 
     changelog_badge_latest: 'Mới nhất',
     changelog_title_latest: 'Nhật ký cập nhật',
+    changelog_body_v200: '• <strong>Khóa đơn phiên hệ thống (Single Instance Lock):</strong> Ngăn chặn triệt để tình trạng mở nhiều tiến trình ngầm gây chiếm dụng phím tắt và xung đột cấu hình.<br>• <strong>Cập nhật cấu hình tức thì (Live Settings Sync):</strong> Tự động đồng bộ IP máy chủ và model AI tới toàn bộ cửa sổ ngay khi bấm Save, không cần khởi động lại ứng dụng.<br>• <strong>Khắc phục dứt điểm lỗi Timeout máy chủ cũ:</strong> Luôn nạp trực tiếp địa chỉ máy chủ mới nhất từ ổ đĩa trước khi gửi yêu cầu dịch thuật.<br>• <strong>Cổng thông tin Web Song ngữ (VI / EN):</strong> Nâng cấp giao diện website với bộ chuyển đổi ngôn ngữ dạng Segmented Pill và cơ chế chống cache tự động.',
     changelog_body_v109: '• <strong>Cơ chế cập nhật Native Windows Shell:</strong> Loại bỏ hoàn toàn script chạy ngầm, gọi trực tiếp bộ cài qua Windows Explorer, miễn nhiễm 100% với Antivirus và chính sách chặn PowerShell.<br>• <strong>Nút thao tác cập nhật trực tiếp:</strong> Thêm nút "Cài đặt & Khởi động lại ngay" và "Mở thư mục" ngay trên giao diện Cài đặt khi tải xong 100%.<br>• <strong>Cổng thông tin web nội bộ:</strong> Ra mắt website giới thiệu và tải nhanh tại <code>http://192.168.1.12:8080/</code>.<br>• <strong>Tự động đóng tiến trình cũ:</strong> Bộ cài NSIS tự động đóng các phiên bản cũ trước khi cài đè, không bị lỗi kẹt file lock.',
 
     changelog_title_v108: 'Phiên bản v1.0.8 (Khắc phục mở Settings & Macro đóng tiến trình NSIS)',
@@ -290,6 +291,7 @@ const translations = {
 
     changelog_badge_latest: 'Latest',
     changelog_title_latest: 'Release Notes',
+    changelog_body_v200: '• <strong>Single Instance Lock:</strong> Completely eliminates duplicate background processes and resolves shortcut/configuration conflicts.<br>• <strong>Live Real-time Settings Sync:</strong> Seamlessly synchronizes server IP and AI model updates across all active windows upon saving without restart.<br>• <strong>Dynamic Server Address Resolution:</strong> Always reads the latest configured LM Studio address from disk prior to translating, preventing stale connection timeouts.<br>• <strong>Bilingual Documentation Portal:</strong> Instant one-click switch between Vietnamese and English with automatic cache-busting.',
     changelog_body_v109: '• <strong>Native Windows Shell Auto-Updater:</strong> Completely eliminated background scripts. Spawns installer via Windows Explorer with full user session elevation, eliminating Antivirus and PowerShell execution policy blocks.<br>• <strong>Direct In-App Update Controls:</strong> Added "Install & Restart Now" and "Open Folder" action buttons on the update screen when download completes.<br>• <strong>Corporate LAN Web Portal:</strong> Launched web documentation and download portal at <code>http://192.168.1.12:8080/</code>.<br>• <strong>NSIS Process Cleaner:</strong> Installer automatically terminates old instances before file extraction, preventing locked files.',
 
     changelog_title_v108: 'Version v1.0.8 (Settings Window Display & NSIS Process Cleaner)',
